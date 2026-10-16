@@ -1,11 +1,1 @@
-{
-  "ok": true,
-  "total": 5,
-  "findings": [
-    {"id": "fnd_01J9Z3K7", "path": "/var/www/vhosts/shop-example.com/httpdocs/wp-content/uploads/2026/10/cache.php", "kind": "malware", "signature": "php.webshell.generic", "severity": "critical", "status": "open", "domain": "shop-example.com", "detected": "2026-10-16T07:58:12Z"},
-    {"id": "fnd_01J9YW2Q", "path": "/var/www/vhosts/shop-example.com/httpdocs/wp-includes/version.php", "kind": "integrity", "signature": "core_file_modified", "severity": "high", "status": "open", "domain": "shop-example.com", "detected": "2026-10-16T07:58:10Z"},
-    {"id": "fnd_01J9RK5D", "path": "/var/www/vhosts/studio-rossi.it/httpdocs/js/jquery.min.js", "kind": "malware", "signature": "js.injector.skimmer", "severity": "high", "status": "quarantined", "domain": "studio-rossi.it", "detected": "2026-10-15T14:22:47Z"},
-    {"id": "fnd_01J9P0AB", "path": "/etc/ssh/sshd_config", "kind": "integrity", "signature": "system_file_modified", "severity": "medium", "status": "acknowledged", "domain": null, "detected": "2026-10-14T09:03:30Z"},
-    {"id": "fnd_01J9KZ7M", "path": "/var/www/vhosts/blog-example.org/httpdocs/xmlrpc-old.php", "kind": "malware", "signature": "php.backdoor.eval_post", "severity": "critical", "status": "resolved", "domain": "blog-example.org", "detected": "2026-10-12T21:16:05Z"}
-  ]
-}
+{"agent_running":true,"findings":[{"detected":"2026-10-16T11:30:00Z","kind":"malware","last_seen":"2026-10-16T11:30:00Z","name":"Obfuscated eval","path":"/home/bob/public_html/wp-includes/class-wp-cache.php","severity":"high","status":"detected"},{"detected":"2026-10-16T11:00:00Z","kind":"malware","last_seen":"2026-10-16T11:00:00Z","name":"PHP webshell (generic)","path":"/home/alice/public_html/wp-content/uploads/x.php","severity":"critical","status":"quarantined"},{"detected":"2026-10-16T10:30:00Z","kind":"integrity","last_seen":"2026-10-16T10:30:00Z","name":null,"path":"/etc/passwd","severity":"warning","status":"detected"}],"ok":true,"total":3}

@@ -1,6 +1,7 @@
 #!/bin/sh
-# Checks that the root wrapper refuses everything outside the panel contract.
-# Run as root on a test server or container where the extension is installed:
+# Checks that the root wrapper refuses everything outside the panel commands, with the agent's
+# error codes (docs/panel-json.md). Run as root on a test server or container where the extension
+# is installed:
 #
 #   sh test-wrapper.sh [path to infrafence-panel]
 #
@@ -12,35 +13,48 @@ expect() {
     want=$1
     shift
     out=$("$W" "$@" 2>&1)
+    code=$?
     case "$out" in
-        *"\"error\":\"$want\""*) printf 'ok    %-22s %s\n' "$want" "$*" ;;
-        *) printf 'FAIL  %-22s %s\n      got: %s\n' "$want" "$*" "$out"; fails=$((fails + 1)) ;;
+        *"\"error\":\"$want\""*)
+            if [ "$code" -eq 1 ]; then
+                printf 'ok    %-20s %s\n' "$want" "$*"
+            else
+                printf 'FAIL  %-20s %s\n      exit status %s, want 1\n' "$want" "$*" "$code"
+                fails=$((fails + 1))
+            fi
+            ;;
+        *) printf 'FAIL  %-20s %s\n      got: %s\n' "$want" "$*" "$out"; fails=$((fails + 1)) ;;
     esac
 }
 
-expect invalid_arguments
+expect bad_request
 expect unknown_command      rm -rf /
 expect unknown_command      'status;id'
-expect invalid_ip           unban '1.2.3.4;id' --actor plesk:admin
-expect invalid_ip           unban '$(id)' --actor plesk:admin
-expect invalid_ip           unban 1.2.3.4/24 --actor plesk:admin
-expect invalid_ip           allow 10.0.0.0/8 --actor plesk:admin
-expect invalid_ip           allow 2001:db8::/32 --actor plesk:admin
-expect invalid_ip           allow 999.1.1.1 --actor plesk:admin
-expect invalid_arguments    unban 1.2.3.4
-expect invalid_arguments    unban 1.2.3.4 --actor 'x y'
-expect invalid_arguments    unban 1.2.3.4 --actor -x
-expect invalid_arguments    unban 1.2.3.4 5.6.7.8 --actor plesk:admin
-expect invalid_arguments    allow 1.2.3.4 --note '-x' --actor plesk:admin
-expect invalid_arguments    allow 1.2.3.4 --note "$(printf 'a\nb')" --actor plesk:admin
-expect invalid_arguments    bans --limit 5000
-expect invalid_arguments    bans --limit 0
-expect invalid_arguments    bans --actor plesk:admin
-expect invalid_arguments    events --since 'yesterday'
-expect invalid_arguments    status --json
-expect invalid_path         scan /etc --actor plesk:admin
-expect invalid_path         scan /var/www/vhosts/../../etc --actor plesk:admin
-expect invalid_path         scan /var/www/vhosts --actor plesk:admin
-expect invalid_path         scan relative/path --actor plesk:admin
+expect invalid_ip           unban '1.2.3.4;id' --actor admin
+expect invalid_ip           unban '$(id)' --actor admin
+expect invalid_ip           unban 1.2.3.4/24 --actor admin
+expect invalid_ip           allow 10.0.0.0/8 --actor admin
+expect invalid_ip           allow 999.1.1.1 --actor admin
+expect invalid_ip           disallow 10.0.0.0/8 --actor admin
+expect invalid_actor        unban 1.2.3.4
+expect invalid_actor        unban 1.2.3.4 --actor 'x y'
+expect invalid_actor        unban 1.2.3.4 --actor plesk:admin
+expect invalid_actor        unban 1.2.3.4 --actor -x
+expect invalid_actor        unban 1.2.3.4 --actor aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+expect bad_request          unban 1.2.3.4 5.6.7.8 --actor admin
+expect bad_request          allow 1.2.3.4 --note '-x' --actor admin
+expect bad_request          allow 1.2.3.4 --note "$(printf 'a\nb')" --actor admin
+expect bad_request          allow 1.2.3.4 --note "$(printf '%0201d' 0)" --actor admin
+expect bad_request          bans --limit 501
+expect bad_request          bans --limit 0
+expect bad_request          bans --actor admin
+expect bad_request          events --since 'yesterday'
+expect bad_request          status --json
+expect invalid_path         scan relative/path --actor admin
+expect invalid_path         scan /var/www/vhosts/../../etc --actor admin
+expect invalid_path         scan '/var/www/vhosts/a b' --actor admin
+expect not_a_document_root  scan /etc --actor admin
+expect not_a_document_root  scan /var/www/vhosts --actor admin
+expect not_a_document_root  scan /var/www/vhosts/no-such-domain.example --actor admin
 
 [ "$fails" -eq 0 ] && echo "all checks passed" || { echo "$fails check(s) failed"; exit 1; }

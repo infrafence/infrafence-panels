@@ -21,10 +21,10 @@ export const t = (key, params = {}) => {
 };
 
 /**
- * Translates a code reported by the agent (`group.code`). Unknown codes are shown readably,
- * so a newer agent never breaks the screen.
+ * Translates a code reported by the agent (`group.code`). Unknown codes are shown readably, or
+ * exactly as sent with `{ raw: true }`, so a newer agent never breaks the screen.
  */
-export const code = (group, value) => {
+export const code = (group, value, { raw = false } = {}) => {
     if (value === null || value === undefined || value === '') {
         return '';
     }
@@ -32,8 +32,16 @@ export const code = (group, value) => {
     if (has(key)) {
         return t(key);
     }
+    if (raw) {
+        return String(value);
+    }
     const text = String(value).replace(/[_-]+/g, ' ');
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
 export const errorText = error => (has(`errors.${error}`) ? t(`errors.${error}`) : t('errors.generic', { code: error }));
+
+/**
+ * Builds one message from sentences, leaving out empty ones.
+ */
+export const sentences = (...parts) => parts.filter(Boolean).join(' ');

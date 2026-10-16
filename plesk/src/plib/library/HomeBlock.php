@@ -48,13 +48,18 @@ class Modules_Infrafence_HomeBlock extends \Plesk\SDK\Hook\Home\Block
         if (empty($status['agent_running'])) {
             return $this->line('danger', pm_Locale::lmsg('homeAgentStopped'));
         }
+        if (!empty($status['suspended'])) {
+            return $this->line('danger', pm_Locale::lmsg('homeSuspended'));
+        }
         if (empty($status['connected'])) {
             return $this->line('warning', pm_Locale::lmsg('homeNotConnected'));
         }
 
-        $html = $this->line('success', pm_Locale::lmsg('homeProtected'));
+        $html = !empty($status['monitor_mode'])
+            ? $this->line('warning', pm_Locale::lmsg('homeMonitorMode'))
+            : $this->line('success', pm_Locale::lmsg('homeProtected'));
         $bans = Modules_Infrafence_Agent::call('bans', ['--limit', '1']);
-        if ($bans['ok'] && isset($bans['total'])) {
+        if ($bans['ok'] && is_int($bans['total'] ?? null)) {
             $html .= '<div class="pul-text pul-text--muted">'
                 . $this->escape(pm_Locale::lmsg('homeActiveBans', ['count' => (int)$bans['total']]))
                 . '</div>';

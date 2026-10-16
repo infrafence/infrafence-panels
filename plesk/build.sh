@@ -38,6 +38,8 @@ if [ "${1:-}" = "--local" ]; then
     check_php
 fi
 
+python3 dev/check-mock.py >/dev/null || { python3 dev/check-mock.py; exit 1; }
+
 if [ -f yarn.lock ]; then
     yarn install --frozen-lockfile --non-interactive --ignore-scripts
 else

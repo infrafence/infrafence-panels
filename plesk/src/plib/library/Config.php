@@ -5,27 +5,23 @@
  * Settings that can be overridden in panel.ini, section [ext-infrafence]:
  *
  *     [ext-infrafence]
- *     installCommand = "curl -fsSL https://get.infrafence.com | sudo bash"
- *     dashboardUrl = "https://app.infrafence.com"
+ *     addServerUrl = "https://infrafence.com/add-server"
  */
 class Modules_Infrafence_Config
 {
-    const DEFAULT_INSTALL_COMMAND = 'curl -fsSL https://get.infrafence.com | sudo bash';
-    const DEFAULT_DASHBOARD_URL = 'https://app.infrafence.com';
+    const DEFAULT_ADD_SERVER_URL = 'https://infrafence.com/add-server';
 
-    public static function installCommand(): string
+    /**
+     * Where the "agent not installed" screen sends the administrator to add this server.
+     */
+    public static function addServerUrl(): string
     {
-        return (string)pm_Config::get('installCommand', self::DEFAULT_INSTALL_COMMAND);
-    }
-
-    public static function dashboardUrl(): string
-    {
-        return self::httpsUrl((string)pm_Config::get('dashboardUrl', self::DEFAULT_DASHBOARD_URL))
-            ?? self::DEFAULT_DASHBOARD_URL;
+        return self::httpsUrl(pm_Config::get('addServerUrl', self::DEFAULT_ADD_SERVER_URL))
+            ?? self::DEFAULT_ADD_SERVER_URL;
     }
 
     /**
-     * Only plain https links are ever rendered as "Open in InfraFence".
+     * Only plain https links are ever rendered.
      */
     public static function httpsUrl($url): ?string
     {

@@ -31,8 +31,7 @@ class IndexController extends pm_Controller_Action
             'screen' => in_array($screen, self::SCREENS, true) ? $screen : 'overview',
             'locale' => pm_Locale::getCode(),
             'messages' => Modules_Infrafence_Messages::forUi(),
-            'installCommand' => Modules_Infrafence_Config::installCommand(),
-            'dashboardUrl' => Modules_Infrafence_Config::dashboardUrl(),
+            'addServerUrl' => Modules_Infrafence_Config::addServerUrl(),
             'actor' => Modules_Infrafence_Agent::actor(),
         ];
     }

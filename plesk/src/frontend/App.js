@@ -5,6 +5,7 @@ import {
     useEffect,
     useState,
     Alert,
+    Fragment,
     Skeleton,
     SkeletonText,
     Tab,
@@ -40,13 +41,18 @@ const AgentState = ({ status }) => {
     if (!status.agent_running) {
         return <Alert intent="danger">{t('agent.stopped')}</Alert>;
     }
-    if (!status.connected) {
-        return <Alert intent="warning">{t('agent.disconnected')}</Alert>;
+    if (status.suspended) {
+        return <Alert intent="danger">{t('agent.suspended')}</Alert>;
     }
-    return null;
+    return (
+        <Fragment>
+            {status.connected ? null : <Alert intent="warning">{t('agent.disconnected')}</Alert>}
+            {status.monitor_mode ? <Alert intent="warning">{t('agent.monitorMode')}</Alert> : null}
+        </Fragment>
+    );
 };
 
-const App = ({ screen: initialScreen, installCommand, dashboardUrl }) => {
+const App = ({ screen: initialScreen, addServerUrl }) => {
     const [screen, setScreen] = useState(() => screenFromHash(initialScreen));
     const status = useAgent('status');
 
@@ -75,7 +81,7 @@ const App = ({ screen: initialScreen, installCommand, dashboardUrl }) => {
     if (status.error === 'agent_not_installed') {
         return (
             <div className="infrafence__app">
-                <NotInstalled installCommand={installCommand} dashboardUrl={dashboardUrl} onCheckAgain={status.reload} checking={status.loading} />
+                <NotInstalled addServerUrl={addServerUrl} onCheckAgain={status.reload} checking={status.loading} />
                 <ToastHost />
             </div>
         );
@@ -103,7 +109,7 @@ const App = ({ screen: initialScreen, installCommand, dashboardUrl }) => {
             </Tabs>
             <div className="infrafence__screen">
                 <AgentState status={status.data} />
-                <Screen status={status.data} reloadStatus={status.reload} go={go} dashboardUrl={dashboardUrl} />
+                <Screen status={status.data} reloadStatus={status.reload} go={go} />
             </div>
             <ToastHost />
         </div>

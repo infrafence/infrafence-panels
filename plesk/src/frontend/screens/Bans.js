@@ -4,6 +4,7 @@ import {
     createElement,
     useMemo,
     useState,
+    Alert,
     Checkbox,
     FormFieldText,
     Label,
@@ -17,8 +18,9 @@ import {
     ToolbarGroup,
 } from '@plesk/ui-library';
 import { post } from '../api';
-import { code, t } from '../i18n';
-import { ConfirmDialog, ErrorAlert, ListLoading, Mono, RefreshButton, runAction, Time, toast, useAgent } from '../common';
+import { code, errorText, sentences, t } from '../i18n';
+import { dateTime } from '../format';
+import { ConfirmDialog, ErrorAlert, ListLoading, Mono, RefreshButton, Time, toast, useAgent } from '../common';
 
 const SOURCE_INTENT = { local: 'info', network: 'warning', automode: 'success', manual: 'inactive' };
 
@@ -27,11 +29,23 @@ const matches = (ban, query) => {
         return true;
     }
     const q = query.toLowerCase();
-    return [ban.ip, code('reason', ban.reason), code('source', ban.source)].some(v => String(v || '').toLowerCase().includes(q));
+    return [ban.ip, ban.reason, code('source', ban.source)].some(v => String(v || '').toLowerCase().includes(q));
 };
 
+/**
+ * What the unban reply adds to the success message: lifted on this server only and until when,
+ * not reported yet, still on a threat list, firewall entry still pending.
+ */
+export const unbanNotes = reply => [
+    reply.lifted_until ? t('bans.liftedUntil', { date: dateTime(reply.lifted_until) }) : '',
+    reply.source && reply.source !== 'local' ? t('bans.stillElsewhere') : '',
+    reply.reported === false ? t('result.notReported') : '',
+    reply.threat_feed ? t('bans.threatFeed') : '',
+    reply.firewall_pending ? t('bans.firewallPending') : '',
+];
+
 const Bans = ({ status }) => {
-    const bans = useAgent('bans', { limit: 1000 });
+    const bans = useAgent('bans', { limit: 500 });
     const [query, setQuery] = useState('');
     const [pending, setPending] = useState(null);
     const [alsoAllow, setAlsoAllow] = useState(false);
@@ -49,12 +63,22 @@ const Bans = ({ status }) => {
     };
 
     const confirm = () => post('unban', { ip: pending.ip, allow: alsoAllow, note }).then(reply => {
-        if (reply.ok && alsoAllow && reply.allowed === false) {
-            toast('warning', t('bans.unbannedNotAllowed', { ip: pending.ip }));
+        if (!reply.ok) {
+            toast('danger', errorText(reply.error));
         } else {
-            runAction(Promise.resolve(reply), alsoAllow
-                ? t('bans.unbannedAndAllowed', { ip: pending.ip })
-                : t('bans.unbanned', { ip: pending.ip }));
+            const ip = reply.ip || pending.ip;
+            const allow = reply.allow;
+            let first = t('bans.unbanned', { ip });
+            let intent = reply.threat_feed ? 'warning' : 'success';
+            if (allow && allow.ok && !allow.already) {
+                first = t('bans.unbannedAndAllowed', { ip });
+            } else if (allow && allow.ok && allow.already) {
+                first = sentences(first, t('allowlist.already', { ip }));
+            } else if (allow) {
+                first = sentences(first, t('bans.notAllowed'), errorText(allow.error));
+                intent = 'warning';
+            }
+            toast(intent, sentences(first, ...unbanNotes(reply)));
         }
         if (reply.ok || reply.error === 'not_banned') {
             setPending(null);
@@ -67,16 +91,15 @@ const Bans = ({ status }) => {
             key: 'ip',
             title: t('bans.col.ip'),
             type: 'title',
-            sortable: true,
             render: row => <Mono>{row.ip}</Mono>,
         },
-        { key: 'reason', title: t('bans.col.reason'), render: row => code('reason', row.reason) },
+        { key: 'reason', title: t('bans.col.reason'), render: row => row.reason || <span className="infrafence__muted">–</span> },
         {
             key: 'source',
             title: t('bans.col.source'),
             render: row => <Label intent={SOURCE_INTENT[row.source] || 'inactive'} view="light">{code('source', row.source)}</Label>,
         },
-        { key: 'created', title: t('bans.col.created'), sortable: true, render: row => <Time value={row.created} /> },
+        { key: 'created', title: t('bans.col.created'), render: row => <Time value={row.created} empty="–" /> },
         { key: 'expires', title: t('bans.col.expires'), render: row => <Time value={row.expires} empty={t('bans.permanent')} /> },
         {
             key: 'actions',
@@ -93,6 +116,7 @@ const Bans = ({ status }) => {
     return (
         <div>
             {bans.error ? <ErrorAlert error={bans.error} onRetry={bans.reload} status={status} /> : null}
+            {bans.data && bans.data.monitor_mode && !status.monitor_mode ? <Alert intent="info">{t('bans.monitorMode')}</Alert> : null}
             <Paragraph className="infrafence__intro">{t('bans.intro')}</Paragraph>
             {bans.error && !bans.data ? null : (
                 <List
@@ -122,6 +146,9 @@ const Bans = ({ status }) => {
                     )}
                 />
             )}
+            {bans.data && bans.data.total > bans.data.bans.length ? (
+                <Paragraph className="infrafence__muted">{t('bans.more', { shown: bans.data.bans.length, total: bans.data.total })}</Paragraph>
+            ) : null}
             <ConfirmDialog
                 isOpen={!!pending}
                 title={pending ? t(alsoAllow ? 'bans.confirmAllowTitle' : 'bans.confirmTitle', { ip: pending.ip }) : ''}

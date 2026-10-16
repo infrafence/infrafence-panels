@@ -5,6 +5,7 @@ import {
     useState,
     Button,
     FormFieldText,
+    Label,
     List,
     ListAction,
     ListActions,
@@ -14,29 +15,22 @@ import {
     ToolbarGroup,
 } from '@plesk/ui-library';
 import { post } from '../api';
-import { errorText, t } from '../i18n';
-import { ConfirmDialog, ErrorAlert, ListLoading, Mono, RefreshButton, runAction, Time, useAgent } from '../common';
+import { code, errorText, sentences, t } from '../i18n';
+import { ConfirmDialog, ErrorAlert, ListLoading, Mono, RefreshButton, Time, toast, useAgent } from '../common';
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 const IPV6 = /^[0-9a-f:.]{2,45}$/i;
 
-// Quick check while typing; the server validates strictly.
+// Quick check while typing; the server and the agent validate strictly. One address, no range.
 const looksValid = value => {
-    const [ip, prefix, extra] = value.trim().split('/');
-    if (extra !== undefined || !ip) {
-        return false;
-    }
-    const v4 = IPV4.test(ip);
-    const v6 = !v4 && IPV6.test(ip) && ip.includes(':');
-    if (!v4 && !v6) {
-        return false;
-    }
-    if (prefix === undefined) {
-        return true;
-    }
-    const n = Number(prefix);
-    return /^\d{1,3}$/.test(prefix) && n >= (v4 ? 16 : 48) && n <= (v4 ? 32 : 128);
+    const ip = value.trim();
+    return IPV4.test(ip) || (IPV6.test(ip) && ip.includes(':'));
 };
+
+const NOTE_MAX_BYTES = 200;
+const noteBytes = value => new TextEncoder().encode(value).length;
+
+const FIELD_ERRORS = ['invalid_ip', 'loopback_address', 'invalid_note', 'bad_request'];
 
 const AllowList = ({ status }) => {
     const list = useAgent('allowlist');
@@ -55,40 +49,66 @@ const AllowList = ({ status }) => {
 
     const add = () => post('allow', { ip: ip.trim(), note }).then(reply => {
         if (reply.ok) {
-            runAction(Promise.resolve(reply), t('allowlist.added', { ip: reply.ip || ip.trim() }));
+            const address = reply.ip || ip.trim();
+            if (reply.own_address) {
+                toast('warning', t('allowlist.ownAddress', { ip: address }));
+            } else if (reply.already) {
+                toast('info', t('allowlist.already', { ip: address }));
+            } else {
+                toast(reply.banned ? 'warning' : 'success', sentences(
+                    t('allowlist.added', { ip: address }),
+                    reply.banned ? t('allowlist.alsoBanned') : '',
+                    reply.reported === false ? t('result.notReported') : '',
+                ));
+            }
             setAdding(false);
             list.reload();
-        } else if (['invalid_ip', 'unusable_ip', 'network_too_wide', 'already_allowed', 'invalid_note'].includes(reply.error)) {
-            setFieldError(reply.error === 'already_allowed' ? t('errors.already_allowed', { entry: reply.entry || '' }) : errorText(reply.error));
+        } else if (FIELD_ERRORS.includes(reply.error)) {
+            setFieldError(errorText(reply.error));
         } else {
-            runAction(Promise.resolve(reply));
+            toast('danger', errorText(reply.error));
         }
     });
 
-    const remove = () => runAction(post('disallow', { ip: removing.ip }), t('allowlist.removed', { ip: removing.ip })).then(reply => {
-        if (reply.ok || reply.error === 'not_allowed') {
+    const remove = () => post('disallow', { ip: removing.address }).then(reply => {
+        if (reply.ok) {
+            toast('success', sentences(
+                t('allowlist.removed', { ip: reply.ip || removing.address }),
+                reply.reported === false ? t('result.notReported') : '',
+            ));
+        } else {
+            toast('danger', errorText(reply.error));
+        }
+        if (reply.ok || reply.error === 'not_in_allowlist' || reply.error === 'managed_by_dashboard') {
             setRemoving(null);
             list.reload();
         }
     });
 
     const columns = [
-        { key: 'ip', title: t('allowlist.col.ip'), type: 'title', sortable: true, render: row => <Mono>{row.ip}</Mono> },
+        { key: 'address', title: t('allowlist.col.address'), type: 'title', render: row => <Mono>{row.address}</Mono> },
+        {
+            key: 'source',
+            title: t('allowlist.col.source'),
+            render: row => <Label intent={row.source === 'panel' ? 'info' : 'inactive'} view="light">{code('allowSource', row.source)}</Label>,
+        },
         { key: 'note', title: t('allowlist.col.note'), render: row => row.note || <span className="infrafence__muted">–</span> },
-        { key: 'actor', title: t('allowlist.col.actor'), render: row => row.actor || '–' },
-        { key: 'created', title: t('allowlist.col.created'), sortable: true, render: row => <Time value={row.created} /> },
+        { key: 'actor', title: t('allowlist.col.actor'), render: row => row.actor || <span className="infrafence__muted">–</span> },
+        { key: 'added', title: t('allowlist.col.added'), render: row => <Time value={row.added} empty="–" /> },
         {
             key: 'actions',
             type: 'actions',
-            render: row => (
+            render: row => (row.source === 'panel' ? (
                 <ListActions>
                     <ListAction primary icon="remove" onClick={() => setRemoving(row)}>{t('allowlist.remove')}</ListAction>
                 </ListActions>
-            ),
+            ) : (
+                <span className="infrafence__muted" title={t('allowlist.dashboardEntry')}>{t('allowlist.inDashboard')}</span>
+            )),
         },
     ];
 
-    const valid = looksValid(ip);
+    const valid = looksValid(ip) && noteBytes(note) <= NOTE_MAX_BYTES;
 
     return (
         <div>
@@ -97,8 +117,8 @@ const AllowList = ({ status }) => {
             {list.error && !list.data ? null : (
                 <List
                     columns={columns}
-                    data={list.data ? list.data.entries : []}
-                    rowKey="ip"
+                    data={list.data ? list.data.allowlist : []}
+                    rowKey="address"
                     toolbar={(
                         <Toolbar>
                             <ToolbarGroup title={t('allowlist.add')}>
@@ -134,7 +154,7 @@ const AllowList = ({ status }) => {
                     value={ip}
                     onChange={value => { setIp(value); setFieldError(null); }}
                     errors={fieldError ? [fieldError] : undefined}
-                    inputProps={{ autoFocus: true, maxLength: 49, autoComplete: 'off' }}
+                    inputProps={{ autoFocus: true, maxLength: 45, autoComplete: 'off' }}
                     required
                     size="fill"
                 />
@@ -143,13 +163,14 @@ const AllowList = ({ status }) => {
                     label={t('allowlist.note')}
                     value={note}
                     onChange={setNote}
+                    errors={noteBytes(note) > NOTE_MAX_BYTES ? [t('errors.invalid_note')] : undefined}
                     inputProps={{ maxLength: 200 }}
                     size="fill"
                 />
             </ConfirmDialog>
             <ConfirmDialog
                 isOpen={!!removing}
-                title={removing ? t('allowlist.removeTitle', { ip: removing.ip }) : ''}
+                title={removing ? t('allowlist.removeTitle', { ip: removing.address }) : ''}
                 confirmText={t('allowlist.remove')}
                 intent="danger"
                 onConfirm={remove}

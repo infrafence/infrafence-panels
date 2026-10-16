@@ -63,10 +63,18 @@ of RAM or more, with a public or private IP you can reach.
 
 ## 4. Checklist
 
-Mock agent switches (as root): `echo running|stopped|disconnected > /etc/infrafence-mock/mode`,
-`echo 30 > /etc/infrafence-mock/delay` to make it slower than the wrapper's 25 s timeout
-(`rm /etc/infrafence-mock/delay` afterwards). Mock state lives in `/var/lib/infrafence-mock/state.json`;
-delete it to start again.
+The mock answers with the agent's reference outputs (`dev/fixtures/`, a cPanel server: `/home/...` document
+roots). Switches, as root:
+
+- `echo running|stopped|disconnected|monitor|suspended > /etc/infrafence-mock/mode`
+- `echo 30 > /etc/infrafence-mock/delay` makes it slower than the wrapper's 25 s timeout; `echo 0` to undo.
+- State (unbans, allow-list changes, the running scan) is in `/var/lib/infrafence-mock/state.json`; write
+  `{"unbanned":[],"allowed":[],"disallowed":[],"scan_started":null,"events":[]}` into it to start again.
+- To try "Scan now" for real, add a Plesk site to the **installed** copy,
+  `/usr/local/share/infrafence-mock/fixtures/sites.json`, for example
+  `{"account":"blogex","document_root":"/var/www/vhosts/blog-example.org/httpdocs","domain":"blog-example.org","kind":"site","scan_covered":true,"scannable":true}`,
+  and one with `"scannable":false` to see "Cannot be scanned". Leave `dev/fixtures/` as it is: it must stay
+  identical to the agent's reference.
 
 ### Install and integration
 
@@ -79,39 +87,52 @@ delete it to start again.
 
 ### Screens (mode `running`)
 
-- [ ] Overview: Protected, version, last heartbeat "just now", plan, AutoMode with its explanation, and
-      "Open in InfraFence" opens `https://…/servers/<id>` in a new tab. The three counts link to their tabs.
-- [ ] Bans: six rows; the search filters by address and reason; IPv6 is shown in full.
-- [ ] Allow list, Findings (filter All/Malware/File integrity), Events (24 h / 7 d / 30 d),
-      Coexistence (detected tools first, not found greyed out), Domains (Plesk domains plus the agent's).
+- [ ] Overview: Protected, version 1.0.23, last heartbeat and last sync "just now", Mode, plan Pro, AutoMode
+      "Not reported by the dashboard", Server ID 42, and "Open in InfraFence" opens
+      `https://app.infrafence.com/servers/42` in a new tab. The three counts link to their tabs.
+- [ ] Bans: four rows, two of them with no reason and no creation time ("–"), one permanent.
+- [ ] Allow list: one entry added from the panel (with Remove) and two from the dashboard (one a range,
+      "In the dashboard", no Remove).
+- [ ] Findings (filter All/Malware/File integrity, first and last seen), Events (24 h / 7 d / 30 d, "Reported
+      by"), Coexistence (five tools, coexist mode, firewall tools named), Domains (four sites, "Scheduled scan").
 - [ ] Browser back/forward moves between tabs; reloading keeps the tab (URL `#bans`, …).
 
 ### Actions (every one asks for confirmation first)
 
-- [ ] Unban an address → toast, the row disappears, Events shows "Address unbanned" by `plesk:admin`.
-- [ ] Unban with "Also add it to the allow list" and a note → it appears in Allow list with the note.
-- [ ] Add `10.0.0.0/8` → the confirm button stays disabled; add `127.0.0.1` → inline error;
-      add `203.0.113.55` → added. Adding an address already covered by an entry → inline error naming it.
-- [ ] Remove an allow-list entry → removed.
-- [ ] Domains › Scan now on a Plesk domain → "Queued"; the button is disabled while queued.
+- [ ] Unban `203.0.113.7` → toast "lifted on this server only, until …"; the row disappears; Events shows
+      "Address unbanned from the panel".
+- [ ] Unban `198.51.100.9` with "Also add it to the allow list" and a note → the toast adds that the ban stays
+      in force in the dashboard and on the other servers; the address is in Allow list with the note, added by
+      `admin`.
+- [ ] Add `10.0.0.0/8` → the confirm button stays disabled; `0.0.0.0` and `127.0.0.1` → inline errors;
+      `203.0.113.20` → "already allowed"; `203.0.113.55` → added.
+- [ ] Remove `198.51.100.4` → removed. Dashboard entries have no Remove.
+- [ ] Domains › Scan now on a site under `/var/www/vhosts` (see above) → "scan has started"; at once again →
+      "already running"; on a `/home/...` fixture site → "not the document root of any site" (refused by the
+      wrapper: Plesk document roots are under the vhosts directory); a `scannable: false` site has no button.
 - [ ] Tools & Settings › Action Log shows `ext_infrafence_*` entries for the actions above.
 
 ### Agent states
 
-- [ ] `stopped`: red banner above the tabs, Overview "Not protected", lists show no stale empty state,
-      Scan now disabled, Home block "The InfraFence agent is not running".
+- [ ] `stopped`: red banner above the tabs, Overview "Not protected" with "–" for what only the running agent
+      knows, lists show no stale empty state, Coexistence and Domains still answer, Scan now disabled, Home
+      block "The InfraFence agent is not running".
 - [ ] `disconnected`: yellow banner, Overview "Protected locally, not connected".
+- [ ] `monitor`: yellow "Monitor mode" banner (once, also on Bans), Overview "Monitor mode".
+- [ ] `suspended`: red banner about the plan's server limit, Overview "Not protected".
 - [ ] `delay` 30: screens show "did not answer in time" after 25 s; Plesk stays responsive.
 - [ ] Untrusted binary: `chmod 777 /usr/local/share/infrafence-mock/mock-agent` → "not owned by root or can be
       modified by other users"; restore with `chmod 755`.
-- [ ] Not installed: `rm /usr/local/sbin/infrafence-agent` → install screen with the command and Copy;
-      put the link back and press "Check again".
+- [ ] Not installed: `chmod 644 /usr/local/share/infrafence-mock/mock-agent` (or remove the agent) → the
+      screen that sends you to Servers > Add server, with a link to https://infrafence.com/add-server;
+      `chmod 755` again and press "Check again".
 
 ### Security
 
 - [ ] As root: `sh dev/test-wrapper.sh` → "all checks passed".
+- [ ] On the build machine: `python3 dev/check-mock.py` → "all checks passed" (build.sh runs it too).
 - [ ] Symlink escape: `ln -s /etc /var/www/vhosts/<domain>/evil` then
-      `infrafence-panel scan /var/www/vhosts/<domain>/evil --actor x` → `invalid_path`; remove the link.
+      `infrafence-panel scan /var/www/vhosts/<domain>/evil --actor admin` → `not_a_document_root`; remove the link.
 - [ ] Log in as a customer: `/modules/infrafence/index.php/api/status` returns no agent data and the
       extension is not in the customer's navigation.
 - [ ] In the browser console, a `fetch` POST to `…/api/unban` without the `X-Forgery-Protection-Token`

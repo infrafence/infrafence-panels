@@ -13,8 +13,7 @@
     color: var(--pul-color-text-subtle, inherit);
 }
 
-.infrafence__mono,
-.infrafence__command code {
+.infrafence__mono {
     font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     font-size: 0.92em;
     overflow-wrap: anywhere;
@@ -82,23 +81,4 @@
 
 .infrafence__not-installed {
     max-width: 760px;
-}
-
-.infrafence__command {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 8px 0 4px;
-    padding: 8px 8px 8px 12px;
-    border: 1px solid var(--pul-color-border-subtler, #d9d9d9);
-    border-radius: 4px;
-    background: var(--pul-color-bg-neutral-subtler, #f5f5f5);
-}
-
-.infrafence__command code {
-    flex: 1;
-    min-width: 0;
-    padding: 0;
-    background: none;
-    color: inherit;
 }

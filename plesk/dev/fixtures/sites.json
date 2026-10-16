@@ -1,10 +1,1 @@
-{
-  "ok": true,
-  "sites": [
-    {"account": "shopex", "domain": "shop-example.com", "docroot": "/var/www/vhosts/shop-example.com/httpdocs", "coverage": "full", "scan_status": "infected", "last_scan": "2026-10-16T07:58:00Z", "files": 18422},
-    {"account": "rossi", "domain": "studio-rossi.it", "docroot": "/var/www/vhosts/studio-rossi.it/httpdocs", "coverage": "full", "scan_status": "clean", "last_scan": "2026-10-15T14:22:00Z", "files": 2311},
-    {"account": "blogex", "domain": "blog-example.org", "docroot": "/var/www/vhosts/blog-example.org/httpdocs", "coverage": "full", "scan_status": "clean", "last_scan": "2026-10-16T03:10:00Z", "files": 9120},
-    {"account": "blogex", "domain": "staging.blog-example.org", "docroot": "/var/www/vhosts/blog-example.org/staging", "coverage": "partial", "scan_status": "never", "last_scan": null, "files": null},
-    {"account": "mailonly", "domain": "mail-only.example.net", "docroot": "/var/www/vhosts/mail-only.example.net/httpdocs", "coverage": "none", "scan_status": "never", "last_scan": null, "files": null}
-  ]
-}
+{"agent_running":true,"control_panel":"cpanel","malware_scan_enabled":true,"ok":true,"sites":[{"account":"alice","document_root":"/home/alice/public_html","domain":"alice.example","kind":"main","scan_covered":true,"scannable":true},{"account":"alice","document_root":"/home/alice/public_html","domain":"alice.example.net","kind":"parked","scan_covered":true,"scannable":true},{"account":"alice","document_root":"/home/alice/public_html/blog","domain":"blog.alice.example","kind":"sub","scan_covered":true,"scannable":true},{"account":"bob","document_root":"/home/bob/public_html","domain":"bob.example","kind":"main","scan_covered":false,"scannable":true}]}

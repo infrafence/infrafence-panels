@@ -1,46 +1,62 @@
 #!/usr/bin/env python3
 """Mock of `infrafence-agent panel <command> ... --json` for panel development.
 
-Replies come from the JSON fixtures in ./fixtures (or $INFRAFENCE_MOCK_FIXTURES), following
-docs/panel-contract.md. Timestamps in the fixtures are shifted so that they stay relative to now.
-Changes (unban, allow, disallow, scan) are kept in a small state file, so the panel shows their effect.
+Replies are built from the agent's own reference outputs in ./fixtures (copies of the agent repository's
+testdata/panel/*.json, documented in docs/panel-json.md), with the same fields, error codes and exit
+status. Timestamps are shifted so that they stay relative to now. Changes (unban, allow, disallow, scan)
+are kept in a small state file, so the panel shows their effect.
 
 Development only. Never install this on a production server.
 
-Mock switches (files, because the Plesk wrapper clears the environment):
-  /etc/infrafence-mock/mode   "running" (default), "stopped" or "disconnected"
-  /etc/infrafence-mock/delay  seconds to wait before answering (to test loading states)
+Switches (files, because the Plesk wrapper clears the environment):
+  /etc/infrafence-mock/mode    "running" (default), "stopped", "disconnected", "monitor" (monitor_mode)
+                               or "suspended" (plan server limit exceeded)
+                               ($INFRAFENCE_MOCK_MODE wins when set, for dev/check-mock.py)
+  /etc/infrafence-mock/delay   seconds to wait before answering (to test timeouts)
+To test "Scan now" with real Plesk document roots, add sites to the installed fixtures/sites.json.
 """
 
 import ipaddress
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.realpath(__file__))
-FIXTURES = os.environ.get("INFRAFENCE_MOCK_FIXTURES") or next(
-    (p for p in (os.path.join(HERE, "fixtures"), "/usr/local/share/infrafence-mock/fixtures") if os.path.isdir(p)),
-    os.path.join(HERE, "fixtures"),
-)
+FIXTURES = os.environ.get("INFRAFENCE_MOCK_FIXTURES") or os.path.join(HERE, "fixtures")
 STATE_FILE = os.environ.get("INFRAFENCE_MOCK_STATE", "/var/lib/infrafence-mock/state.json")
 SWITCHES = "/etc/infrafence-mock"
-ANCHOR = datetime(2026, 10, 16, 9, 0, 0, tzinfo=timezone.utc)
-VERSION = "1.8.2"
+ANCHOR = datetime(2026, 10, 16, 12, 0, 0, tzinfo=timezone.utc)
 
-READ_COMMANDS = {"status", "bans", "allowlist", "findings", "events", "coexistence", "sites"}
-WRITE_COMMANDS = {"unban", "allow", "disallow", "scan"}
+COMMANDS = {
+    # command: (options with a value, number of positional arguments, needs --actor)
+    "status": (set(), 0, False),
+    "bans": ({"--limit"}, 0, False),
+    "unban": ({"--actor"}, 1, True),
+    "allow": ({"--actor", "--note"}, 1, True),
+    "allowlist": (set(), 0, False),
+    "disallow": ({"--actor"}, 1, True),
+    "findings": ({"--limit"}, 0, False),
+    "events": ({"--limit", "--since"}, 0, False),
+    "coexistence": (set(), 0, False),
+    "sites": (set(), 0, False),
+    "scan": ({"--actor"}, 1, True),
+}
+ACTOR = re.compile(r"^[A-Za-z0-9._@+-]{1,64}$")
 
 
 class Fail(Exception):
-    def __init__(self, code, message, exit_code=1):
+    """An error reply. agent_running is None when the arguments were refused before asking the agent."""
+
+    def __init__(self, code, message, agent_running=None):
         super().__init__(message)
-        self.code, self.message, self.exit_code = code, message, exit_code
+        self.code, self.message, self.agent_running = code, message, agent_running
 
 
 def reply(obj, exit_code=0):
-    sys.stdout.write(json.dumps(obj, separators=(",", ":")) + "\n")
+    sys.stdout.write(json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
     sys.exit(exit_code)
 
 
@@ -52,8 +68,19 @@ def switch(name, default):
         return default
 
 
-def now_iso():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def iso(t):
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def now():
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def parse_time(value):
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
 
 
 def shift_times(value, delta):
@@ -61,20 +88,15 @@ def shift_times(value, delta):
         return {k: shift_times(v, delta) for k, v in value.items()}
     if isinstance(value, list):
         return [shift_times(v, delta) for v in value]
-    if isinstance(value, str) and len(value) == 20 and value[4] == "-" and value[10] == "T" and value.endswith("Z"):
-        try:
-            t = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        except ValueError:
-            return value
-        return (t + delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", value):
+        return iso(parse_time(value) + delta)
     return value
 
 
 def fixture(name):
     with open(os.path.join(FIXTURES, name + ".json")) as f:
         data = json.load(f)
-    delta = datetime.now(timezone.utc).replace(microsecond=0) - ANCHOR
-    return shift_times(data, timedelta(seconds=int(delta.total_seconds())))
+    return shift_times(data, now() - ANCHOR)
 
 
 def load_state():
@@ -82,7 +104,7 @@ def load_state():
         with open(STATE_FILE) as f:
             return json.load(f)
     except (OSError, ValueError):
-        return {"unbanned": [], "allowed": [], "disallowed": [], "scans": {}}
+        return {"unbanned": [], "allowed": [], "disallowed": [], "scan_started": None, "events": []}
 
 
 def save_state(state):
@@ -93,167 +115,205 @@ def save_state(state):
     os.replace(tmp, STATE_FILE)
 
 
+def since_cutoff(value):
+    m = re.match(r"^(\d+)([smhd])$", value)
+    if m:
+        seconds = int(m.group(1)) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
+        return now() - timedelta(seconds=seconds) if seconds <= 90 * 86400 else None
+    t = parse_time(value)
+    return t if t and t.tzinfo and now() - t <= timedelta(days=90) else None
+
+
 def parse(argv):
-    """Returns (command, positional, options). Mirrors the agent's strict parser."""
     if len(argv) < 2 or argv[0] != "panel":
-        raise Fail("usage", "usage: infrafence-agent panel <command> [args] --json", 2)
+        raise Fail("bad_request", "usage: infrafence-agent panel <command> [args] --json")
     command, rest = argv[1], argv[2:]
-    if command not in READ_COMMANDS | WRITE_COMMANDS:
-        raise Fail("unknown_command", "unknown panel command", 2)
-    allowed = {
-        "status": set(), "coexistence": set(), "sites": set(), "allowlist": set(),
-        "bans": {"--limit"}, "findings": {"--limit"}, "events": {"--limit", "--since"},
-        "unban": {"--actor"}, "allow": {"--actor", "--note"}, "disallow": {"--actor"}, "scan": {"--actor"},
-    }[command]
-    positional, options, json_flag, i = [], {}, False, 0
+    if command not in COMMANDS:
+        raise Fail("unknown_command", "unknown panel command " + json.dumps(command))
+    with_value, positional_count, needs_actor = COMMANDS[command]
+    positional, options, i = [], {}, 0
     while i < len(rest):
         arg = rest[i]
         if arg == "--json":
-            json_flag = True
-        elif arg in allowed:
+            pass
+        elif arg in with_value:
             if i + 1 >= len(rest):
-                raise Fail("invalid_argument", "missing value for " + arg, 2)
+                raise Fail("bad_request", arg + " needs a value")
             options[arg] = rest[i + 1]
             i += 1
-        elif arg.startswith("-"):
-            raise Fail("invalid_argument", "unknown option", 2)
+        elif arg.startswith("--"):
+            raise Fail("bad_request", "unknown option " + arg)
         else:
             positional.append(arg)
         i += 1
-    if not json_flag:
-        raise Fail("usage", "--json is required", 2)
-    want = 1 if command in WRITE_COMMANDS else 0
-    if len(positional) != want:
-        raise Fail("invalid_argument", "wrong number of arguments", 2)
-    if command in WRITE_COMMANDS and not options.get("--actor"):
-        raise Fail("invalid_argument", "--actor is required", 2)
-    if "--limit" in options and not (options["--limit"].isdigit() and 1 <= int(options["--limit"]) <= 1000):
-        raise Fail("invalid_argument", "--limit must be 1..1000", 2)
+    if len(positional) != positional_count:
+        raise Fail("bad_request", "wrong number of arguments")
+    if needs_actor and not ACTOR.match(options.get("--actor", "")):
+        raise Fail("invalid_actor", "--actor must be 1-64 of A-Z a-z 0-9 . _ @ - +")
+    if "--limit" in options and not (options["--limit"].isdigit() and 1 <= int(options["--limit"]) <= 500):
+        raise Fail("bad_request", "--limit must be 1-500")
+    if "--note" in options:
+        note = options["--note"]
+        if len(note.encode()) > 200 or any(ord(c) < 32 or ord(c) == 127 for c in note):
+            raise Fail("bad_request", "--note must be up to 200 bytes of printable text")
+    if "--since" in options and since_cutoff(options["--since"]) is None:
+        raise Fail("bad_request", "--since must be an RFC 3339 time or a duration such as 24h, at most 90 days")
     return command, positional, options
 
 
-def limit(items, options):
-    n = int(options.get("--limit", 0) or 0)
-    return items[:n] if n else items
-
-
-def same_ip(a, b):
+def single_ip(value):
+    """Canonical address, as the agent accepts it: one address, no range, port or zone."""
     try:
-        return ipaddress.ip_network(a, strict=False) == ipaddress.ip_network(b, strict=False)
+        ip = ipaddress.ip_address(value)
     except ValueError:
-        return a == b
+        raise Fail("invalid_ip", "not a single IPv4 or IPv6 address")
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    if ip.is_unspecified or ip.is_multicast or str(ip) == "255.255.255.255":
+        raise Fail("invalid_ip", "not a single IPv4 or IPv6 address")
+    return str(ip)
+
+
+def active_bans(state):
+    return [b for b in fixture("bans")["bans"] if b["ip"] not in state["unbanned"]]
+
+
+def allowlist(state):
+    entries = [e for e in state["allowed"] if e["address"] not in state["disallowed"]]
+    entries += [e for e in fixture("allowlist")["allowlist"] if e["address"] not in state["disallowed"]]
+    return entries
+
+
+def limit(items, options):
+    return items[:int(options.get("--limit", 50))]
+
+
+def record(state, event_type, ip=None):
+    state["events"].append({"severity": "info", "source": "panel", "source_ip": ip, "time": iso(now()), "type": event_type})
 
 
 def main(argv):
     command, positional, options = parse(argv)
     delay = switch("delay", "0")
-    if delay.replace(".", "", 1).isdigit():
+    if re.match(r"^\d+(\.\d+)?$", delay):
         time.sleep(min(float(delay), 60))
-
-    mode = switch("mode", "running")
+    mode = os.environ.get("INFRAFENCE_MOCK_MODE") or switch("mode", "running")
+    running = mode != "stopped"
     state = load_state()
 
     if command == "status":
+        if not running:
+            reply(fixture("status_agent_not_running"))
         data = fixture("status")
-        data["agent_version"] = VERSION
-        if mode == "stopped":
-            data.update(agent_running=False, connected=False)
-            data["last_heartbeat"] = (datetime.now(timezone.utc) - timedelta(minutes=47)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        elif mode == "disconnected":
+        data["last_sync"] = iso(now() - timedelta(seconds=30))
+        if mode == "disconnected":
             data["connected"] = False
-            data["last_heartbeat"] = (datetime.now(timezone.utc) - timedelta(minutes=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            data["last_heartbeat"] = iso(now() - timedelta(minutes=12))
         else:
-            data["last_heartbeat"] = (datetime.now(timezone.utc) - timedelta(seconds=19)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            data["last_heartbeat"] = iso(now() - timedelta(seconds=40))
+        data["monitor_mode"] = mode == "monitor"
+        data["suspended"] = mode == "suspended"
         reply(data)
 
-    if mode == "stopped":
-        raise Fail("agent_not_running", "the InfraFence agent is not running", 3)
-
-    if command == "bans":
-        data = fixture("bans")
-        bans = [b for b in data["bans"] if not any(same_ip(b["ip"], u) for u in state["unbanned"])]
-        reply({"ok": True, "total": len(bans), "bans": limit(bans, options)})
-
-    if command == "allowlist":
-        data = fixture("allowlist")
-        entries = [e for e in data["entries"] if not any(same_ip(e["ip"], d) for d in state["disallowed"])]
-        entries += state["allowed"]
-        reply({"ok": True, "entries": entries})
-
-    if command == "findings":
-        data = fixture("findings")
-        reply({"ok": True, "total": len(data["findings"]), "findings": limit(data["findings"], options)})
-
-    if command == "events":
-        events = state.get("events", [])[::-1] + fixture("events")["events"]
-        since = options.get("--since")
-        if since:
-            if since[-1] in "smhd" and since[:-1].isdigit():
-                cutoff = datetime.now(timezone.utc) - timedelta(seconds=int(since[:-1]) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[since[-1]])
-            else:
-                try:
-                    cutoff = datetime.strptime(since, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-                except ValueError:
-                    raise Fail("invalid_argument", "--since must be a duration (24h) or an RFC 3339 UTC time", 2)
-            events = [e for e in events if datetime.strptime(e["time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) >= cutoff]
-        reply({"ok": True, "events": limit(events, options)})
-
     if command == "coexistence":
-        reply(fixture("coexistence"))
+        data = fixture("coexistence")
+        data["agent_running"] = running
+        reply(data)
 
     if command == "sites":
         data = fixture("sites")
-        for site in data["sites"]:
-            if site["docroot"] in state["scans"]:
-                site["scan_status"] = "queued"
+        data["agent_running"] = running
+        if not running:
+            data["malware_scan_enabled"] = None
         reply(data)
 
-    target, actor = positional[0], options["--actor"]
-    event = {"id": "evt_mock%d" % int(time.time() * 1000), "severity": "info", "time": now_iso(),
-             "source": "panel", "actor": actor, "source_ip": None}
-
+    # Arguments are refused before asking the agent, as the real CLI does.
+    if command == "scan":
+        path = positional[0]
+        if not path.startswith("/") or os.path.normpath(path) != path or "\x00" in path:
+            raise Fail("invalid_path", "not a clean absolute path")
     if command in ("unban", "allow", "disallow"):
-        try:
-            net = ipaddress.ip_network(target, strict=False)
-        except ValueError:
-            raise Fail("invalid_ip", "not a valid IP address", 2)
-        if command == "unban" and "/" in target:
-            raise Fail("invalid_ip", "unban takes a single address", 2)
-        target = str(net) if "/" in target else str(net.network_address)
+        positional[0] = single_ip(positional[0])
+
+    if not running:
+        reply(fixture("error_agent_not_running"), 1)
+
+    if command == "bans":
+        bans = active_bans(state)
+        reply({"agent_running": True, "bans": limit(bans, options), "monitor_mode": mode == "monitor", "ok": True, "total": len(bans)})
+
+    if command == "allowlist":
+        reply({"agent_running": True, "allowlist": allowlist(state), "ok": True})
+
+    if command == "findings":
+        data = fixture("findings")
+        reply({"agent_running": True, "findings": limit(data["findings"], options), "ok": True, "total": len(data["findings"])})
+
+    if command == "events":
+        events = state["events"][::-1] + fixture("events")["events"]
+        if "--since" in options:
+            cutoff = since_cutoff(options["--since"])
+            events = [e for e in events if parse_time(e["time"]) >= cutoff]
+        reply({"agent_running": True, "events": limit(events, options), "ok": True})
+
+    target, actor = positional[0], options["--actor"]
 
     if command == "unban":
-        if not any(same_ip(b["ip"], target) for b in fixture("bans")["bans"]) or target in state["unbanned"]:
-            raise Fail("not_banned", "the address is not banned", 4)
+        ban = next((b for b in active_bans(state) if b["ip"] == target), None)
+        if ban is None:
+            raise Fail("not_banned", target + " is not banned by InfraFence on this server", True)
         state["unbanned"].append(target)
-        event.update(type="ip_unbanned", source_ip=target)
-    elif command == "allow":
-        state["disallowed"] = [d for d in state["disallowed"] if not same_ip(d, target)]
-        if not any(same_ip(e["ip"], target) for e in state["allowed"]):
-            state["allowed"].append({"ip": target, "note": options.get("--note", ""), "actor": actor, "created": now_iso()})
-        event.update(type="ip_allowed", source_ip=target)
-    elif command == "disallow":
-        listed = fixture("allowlist")["entries"] + state["allowed"]
-        if not any(same_ip(e["ip"], target) for e in listed) or target in state["disallowed"]:
-            raise Fail("not_allowed", "the address is not in the allow list", 4)
-        state["allowed"] = [e for e in state["allowed"] if not same_ip(e["ip"], target)]
-        state["disallowed"].append(target)
-        event.update(type="ip_disallowed", source_ip=target)
-    elif command == "scan":
-        if not target.startswith("/"):
-            raise Fail("invalid_path", "path must be absolute", 2)
-        state["scans"][target] = now_iso()
-        event.update(type="scan_queued")
-        state.setdefault("events", []).append(event)
+        record(state, "panel_unban", target)
         save_state(state)
-        reply({"ok": True, "queued": True, "path": target, "job_id": "scan_mock%d" % int(time.time())})
+        # Lifted on this server only, until the ban ends or for at most 30 days.
+        lifted_until = ban["expires"] or iso(now() + timedelta(days=30))
+        reply({"agent_running": True, "ip": target, "lifted_until": lifted_until, "ok": True, "reported": True,
+               "scope": "server", "source": ban["source"], "threat_feed": False})
 
-    state.setdefault("events", []).append(event)
-    save_state(state)
-    reply({"ok": True, "ip": target})
+    if command == "allow":
+        if ipaddress.ip_address(target).is_loopback:
+            raise Fail("loopback_address", target + " is a loopback address; it is never banned", True)
+        if any(e["address"] == target for e in allowlist(state)):
+            reply({"agent_running": True, "already": True, "ip": target, "ok": True, "own_address": False})
+        state["disallowed"] = [d for d in state["disallowed"] if d != target]
+        state["allowed"].insert(0, {"actor": actor, "added": iso(now()), "address": target,
+                                    "note": options.get("--note") or None, "source": "panel"})
+        record(state, "panel_allow", target)
+        save_state(state)
+        banned = any(b["ip"] == target for b in active_bans(state))
+        reply({"agent_running": True, "banned": banned, "ip": target, "ok": True, "own_address": False, "reported": True})
+
+    if command == "disallow":
+        entry = next((e for e in allowlist(state) if e["address"] == target), None)
+        if entry is None:
+            raise Fail("not_in_allowlist", target + " is not on the allow list", True)
+        if entry["source"] == "dashboard":
+            raise Fail("managed_by_dashboard", target + " is on the organization's allow list: remove it in the dashboard", True)
+        state["disallowed"].append(target)
+        record(state, "panel_disallow", target)
+        save_state(state)
+        reply({"agent_running": True, "ip": target, "ok": True, "reported": True})
+
+    if command == "scan":
+        site = next((s for s in fixture("sites")["sites"] if s.get("document_root") == target), None)
+        if site is None:
+            raise Fail("not_a_document_root", target + " is not the document root of any site", True)
+        if not site.get("scannable"):
+            raise Fail("not_scannable", target + " does not belong to the site's account", True)
+        started = parse_time(state.get("scan_started") or "")
+        if started and now() - started < timedelta(seconds=60):
+            raise Fail("scan_running", "a malware scan is already running", True)
+        state["scan_started"] = iso(now())
+        record(state, "panel_scan")
+        save_state(state)
+        reply({"agent_running": True, "ok": True, "path": target, "queued": True, "reported": True})
 
 
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Fail as e:
-        reply({"ok": False, "error": e.code, "message": e.message}, e.exit_code)
+        out = {"error": e.code, "message": e.message, "ok": False}
+        if e.agent_running is not None:
+            out["agent_running"] = e.agent_running
+        reply(out, 1)

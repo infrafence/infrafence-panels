@@ -2,18 +2,17 @@
 
 import {
     createElement,
+    useMemo,
     useState,
     List,
     ListEmptyView,
     Paragraph,
     SegmentedControl,
     Status,
-    Text,
     Toolbar,
     ToolbarGroup,
 } from '@plesk/ui-library';
 import { code, t } from '../i18n';
-import { dateTime } from '../format';
 import { ErrorAlert, ListLoading, Mono, RefreshButton, Time, useAgent } from '../common';
 import { SEVERITY_INTENT } from './Findings';
 
@@ -23,13 +22,15 @@ const Events = ({ status }) => {
     const [since, setSince] = useState('24h');
     const events = useAgent('events', { limit: 500, since });
 
+    const rows = useMemo(
+        () => (events.data ? events.data.events.map((e, i) => ({ ...e, key: `${i}|${e.time}|${e.type}` })) : []),
+        [events.data],
+    );
+
     const columns = [
-        {
-            key: 'time',
-            title: t('events.col.time'),
-            render: row => <span title={dateTime(row.time)}><Time value={row.time} /></span>,
-        },
-        { key: 'type', title: t('events.col.type'), type: 'title', render: row => code('event', row.type) },
+        { key: 'time', title: t('events.col.time'), render: row => <Time value={row.time} /> },
+        // Event types are an open set: unknown ones are shown as the agent sends them.
+        { key: 'type', title: t('events.col.type'), type: 'title', render: row => code('event', row.type, { raw: true }) },
         {
             key: 'severity',
             title: t('events.col.severity'),
@@ -39,12 +40,7 @@ const Events = ({ status }) => {
         {
             key: 'source',
             title: t('events.col.origin'),
-            render: row => (
-                <span>
-                    {code('origin', row.source)}
-                    {row.actor ? <Text intent="muted">{` · ${row.actor}`}</Text> : null}
-                </span>
-            ),
+            render: row => (row.source ? code('origin', row.source, { raw: true }) : <span className="infrafence__muted">–</span>),
         },
     ];
 
@@ -55,8 +51,8 @@ const Events = ({ status }) => {
             {events.error && !events.data ? null : (
                 <List
                     columns={columns}
-                    data={events.data ? events.data.events : []}
-                    rowKey="id"
+                    data={rows}
+                    rowKey="key"
                     toolbar={(
                         <Toolbar>
                             <ToolbarGroup title={t('events.period')}>

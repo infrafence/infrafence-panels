@@ -6,7 +6,8 @@
  *
  * The extension runs as psaadm, so every call goes through the root wrapper in
  * sbin/infrafence-panel, with the arguments as an array (never a shell string).
- * Replies follow docs/panel-contract.md: one JSON object with "ok" true or false.
+ * Replies are documented in docs/panel-json.md: one JSON object with "ok" true or false, and on
+ * failure {"ok": false, "error": <code>, "message": <English, for logs>}.
  */
 class Modules_Infrafence_Agent
 {
@@ -52,7 +53,10 @@ class Modules_Infrafence_Agent
         }
         if ($reply['ok'] !== true) {
             $reply['ok'] = false;
-            $reply['error'] = is_string($reply['error'] ?? null) ? $reply['error'] : 'agent_error';
+            $reply['error'] = is_string($reply['error'] ?? null) ? $reply['error'] : 'internal_error';
+            if (is_string($reply['message'] ?? null)) {
+                pm_Log::info("InfraFence agent: $command: {$reply['error']}: {$reply['message']}");
+            }
         }
 
         return $reply;
@@ -64,13 +68,13 @@ class Modules_Infrafence_Agent
     }
 
     /**
-     * The panel user passed to the agent as --actor, e.g. "plesk:admin".
+     * The Plesk login passed to the agent as --actor (1-64 of A-Z a-z 0-9 . _ @ - +).
      */
     public static function actor(): string
     {
-        $login = pm_Session::getClient()->getLogin();
-        $login = preg_replace('/[^A-Za-z0-9._@+-]/', '_', (string)$login);
+        $login = preg_replace('/[^A-Za-z0-9._@+-]/', '_', (string)pm_Session::getClient()->getLogin());
+        $login = substr(ltrim($login, '-'), 0, 64);
 
-        return substr('plesk:' . $login, 0, 100);
+        return $login !== '' ? $login : 'admin';
     }
 }

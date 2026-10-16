@@ -4,13 +4,17 @@
 /**
  * JSON endpoints used by the extension UI. Administrator only.
  *
- * Read actions are GET. Actions that change something are POST only, carry Plesk's
- * forgery protection token, and run a preflight before the agent is asked to do anything:
- * the agent must be running, and the target must exist in the agent's current state.
+ * Read actions are GET and return the agent's reply as it is (docs/panel-json.md). Actions that
+ * change something are POST only, carry Plesk's forgery protection token, and run a preflight
+ * before the agent is asked to do anything: the agent must be running, and the target must exist
+ * in the agent's current state.
  */
 class ApiController extends pm_Controller_Action
 {
     protected $_accessLevel = 'admin';
+
+    /** The agent lists at most this many bans, findings or events per reply. */
+    const MAX_LIMIT = 500;
 
     public function init()
     {
@@ -36,7 +40,7 @@ class ApiController extends pm_Controller_Action
     public function bansAction()
     {
         $this->requireGet();
-        $limit = Modules_Infrafence_Validate::limit($this->getParam('limit'), 500);
+        $limit = Modules_Infrafence_Validate::limit($this->getParam('limit'), self::MAX_LIMIT);
         $this->send(Modules_Infrafence_Agent::call('bans', ['--limit', (string)$limit]));
     }
 
@@ -49,16 +53,16 @@ class ApiController extends pm_Controller_Action
     public function findingsAction()
     {
         $this->requireGet();
-        $limit = Modules_Infrafence_Validate::limit($this->getParam('limit'), 200);
+        $limit = Modules_Infrafence_Validate::limit($this->getParam('limit'), self::MAX_LIMIT);
         $this->send(Modules_Infrafence_Agent::call('findings', ['--limit', (string)$limit]));
     }
 
     public function eventsAction()
     {
         $this->requireGet();
-        $args = ['--limit', (string)Modules_Infrafence_Validate::limit($this->getParam('limit'), 100)];
+        $args = ['--limit', (string)Modules_Infrafence_Validate::limit($this->getParam('limit'), self::MAX_LIMIT)];
         $since = $this->getParam('since');
-        if (is_string($since) && preg_match('/^\d{1,4}[smhd]$/', $since)) {
+        if (is_string($since) && in_array($since, ['24h', '7d', '30d'], true)) {
             array_push($args, '--since', $since);
         }
         $this->send(Modules_Infrafence_Agent::call('events', $args));
@@ -73,16 +77,7 @@ class ApiController extends pm_Controller_Action
     public function sitesAction()
     {
         $this->requireGet();
-        $reply = Modules_Infrafence_Agent::call('sites');
-        if (!$reply['ok'] && ($reply['error'] ?? '') !== 'agent_not_running') {
-            $this->send($reply);
-            return;
-        }
-        $this->send([
-            'ok' => true,
-            'agent_running' => $reply['ok'],
-            'sites' => $this->mergeSites($reply['ok'] ? ($reply['sites'] ?? []) : [], $reply['ok']),
-        ]);
+        $this->send(Modules_Infrafence_Agent::call('sites'));
     }
 
     public function unbanAction()
@@ -100,18 +95,19 @@ class ApiController extends pm_Controller_Action
             return;
         }
 
-        $bans = $this->preflight('bans', ['--limit', '1000']);
+        $bans = $this->preflight('bans', ['--limit', (string)self::MAX_LIMIT]);
         if ($bans === null) {
             return;
         }
         $listed = false;
         foreach ($bans['bans'] ?? [] as $ban) {
-            if (is_string($ban['ip'] ?? null) && Modules_Infrafence_Validate::matches($ip, $ban['ip'])) {
+            if (Modules_Infrafence_Validate::ip($ban['ip'] ?? null) === $ip) {
                 $listed = true;
                 break;
             }
         }
-        if (!$listed) {
+        // Only the first 500 bans are listed; beyond that the agent decides.
+        if (!$listed && (int)($bans['total'] ?? 0) <= count($bans['bans'] ?? [])) {
             $this->send(Modules_Infrafence_Agent::error('not_banned'), 409);
             return;
         }
@@ -121,12 +117,9 @@ class ApiController extends pm_Controller_Action
         if ($reply['ok']) {
             $this->log('ip_unbanned', $ip);
             if ($alsoAllow) {
-                $allow = Modules_Infrafence_Agent::call('allow', $this->allowArgs($ip, $note, $actor));
-                $reply['allowed'] = $allow['ok'];
-                if ($allow['ok']) {
+                $reply['allow'] = Modules_Infrafence_Agent::call('allow', $this->allowArgs($ip, $note, $actor));
+                if ($reply['allow']['ok'] && empty($reply['allow']['already'])) {
                     $this->log('ip_allowed', $ip);
-                } else {
-                    $reply['allow_error'] = $allow['error'];
                 }
             }
         }
@@ -136,9 +129,9 @@ class ApiController extends pm_Controller_Action
     public function allowAction()
     {
         $body = $this->requirePost();
-        $target = Modules_Infrafence_Validate::allowTarget($body['ip'] ?? null, $reason);
-        if ($target === null) {
-            $this->send(Modules_Infrafence_Agent::error($reason), 400);
+        $ip = Modules_Infrafence_Validate::ip($body['ip'] ?? null);
+        if ($ip === null) {
+            $this->send(Modules_Infrafence_Agent::error('invalid_ip'), 400);
             return;
         }
         $note = Modules_Infrafence_Validate::note($body['note'] ?? '');
@@ -146,21 +139,14 @@ class ApiController extends pm_Controller_Action
             $this->send(Modules_Infrafence_Agent::error('invalid_note'), 400);
             return;
         }
-
-        $list = $this->preflight('allowlist');
-        if ($list === null) {
+        if ($this->preflight() === null) {
             return;
         }
-        foreach ($list['entries'] ?? [] as $entry) {
-            if (is_string($entry['ip'] ?? null) && Modules_Infrafence_Validate::matches($target, $entry['ip'])) {
-                $this->send(Modules_Infrafence_Agent::error('already_allowed') + ['entry' => $entry['ip']], 409);
-                return;
-            }
-        }
 
-        $reply = Modules_Infrafence_Agent::call('allow', $this->allowArgs($target, $note, Modules_Infrafence_Agent::actor()));
-        if ($reply['ok']) {
-            $this->log('ip_allowed', $target);
+        // The agent answers "already": true, and changes nothing, if the address is allowed already.
+        $reply = Modules_Infrafence_Agent::call('allow', $this->allowArgs($ip, $note, Modules_Infrafence_Agent::actor()));
+        if ($reply['ok'] && empty($reply['already'])) {
+            $this->log('ip_allowed', $ip);
         }
         $this->send($reply);
     }
@@ -168,28 +154,35 @@ class ApiController extends pm_Controller_Action
     public function disallowAction()
     {
         $body = $this->requirePost();
-        $target = is_string($body['ip'] ?? null) ? trim($body['ip']) : '';
+        $ip = Modules_Infrafence_Validate::ip($body['ip'] ?? null);
+        if ($ip === null) {
+            $this->send(Modules_Infrafence_Agent::error('invalid_ip'), 400);
+            return;
+        }
 
         $list = $this->preflight('allowlist');
         if ($list === null) {
             return;
         }
-        // Only an exact entry of the current list can be removed.
-        $found = null;
-        foreach ($list['entries'] ?? [] as $entry) {
-            if (($entry['ip'] ?? null) === $target) {
-                $found = $target;
+        $entry = null;
+        foreach ($list['allowlist'] ?? [] as $candidate) {
+            if (($candidate['address'] ?? null) === $ip) {
+                $entry = $candidate;
                 break;
             }
         }
-        if ($found === null || !Modules_Infrafence_Validate::isAddressOrNetwork($found)) {
-            $this->send(Modules_Infrafence_Agent::error('not_allowed'), 409);
+        if ($entry === null) {
+            $this->send(Modules_Infrafence_Agent::error('not_in_allowlist'), 409);
+            return;
+        }
+        if (($entry['source'] ?? null) !== 'panel') {
+            $this->send(Modules_Infrafence_Agent::error('managed_by_dashboard'), 409);
             return;
         }
 
-        $reply = Modules_Infrafence_Agent::call('disallow', [$found, '--actor', Modules_Infrafence_Agent::actor()]);
+        $reply = Modules_Infrafence_Agent::call('disallow', [$ip, '--actor', Modules_Infrafence_Agent::actor()]);
         if ($reply['ok']) {
-            $this->log('ip_disallowed', $found);
+            $this->log('ip_disallowed', $ip);
         }
         $this->send($reply);
     }
@@ -197,40 +190,40 @@ class ApiController extends pm_Controller_Action
     public function scanAction()
     {
         $body = $this->requirePost();
-        $docroot = is_string($body['docroot'] ?? null) ? $body['docroot'] : '';
+        $root = is_string($body['document_root'] ?? null) ? $body['document_root'] : '';
 
         $sites = $this->preflight('sites');
         if ($sites === null) {
             return;
         }
-        $known = null;
-        foreach ($this->mergeSites($sites['sites'] ?? []) as $site) {
-            if ($site['docroot'] === $docroot) {
-                $known = $site;
+        $site = null;
+        foreach ($sites['sites'] ?? [] as $candidate) {
+            if ($root !== '' && ($candidate['document_root'] ?? null) === $root) {
+                $site = $candidate;
                 break;
             }
         }
-        if ($known === null) {
-            $this->send(Modules_Infrafence_Agent::error('unknown_docroot'), 409);
+        if ($site === null) {
+            $this->send(Modules_Infrafence_Agent::error('not_a_document_root'), 409);
             return;
         }
-        if (in_array($known['scan_status'], ['queued', 'scanning'], true)) {
-            $this->send(Modules_Infrafence_Agent::error('scan_in_progress'), 409);
+        if (empty($site['scannable'])) {
+            $this->send(Modules_Infrafence_Agent::error('not_scannable'), 409);
             return;
         }
 
-        $reply = Modules_Infrafence_Agent::call('scan', [$docroot, '--actor', Modules_Infrafence_Agent::actor()]);
+        $reply = Modules_Infrafence_Agent::call('scan', [$root, '--actor', Modules_Infrafence_Agent::actor()]);
         if ($reply['ok']) {
-            $this->log('scan_queued', $known['domain'] ?: $docroot);
+            $this->log('scan_queued', (string)($site['domain'] ?? $root));
         }
         $this->send($reply);
     }
 
     /**
-     * Checks that the agent is running and connected enough to act, and returns a fresh
-     * reply of $command to check the target against. Sends the error and returns null otherwise.
+     * Checks that the agent is running, and returns a fresh reply of $command to check the target
+     * against (or the status reply). Sends the error and returns null otherwise.
      */
-    private function preflight(string $command, array $args = []): ?array
+    private function preflight(?string $command = null, array $args = []): ?array
     {
         $status = Modules_Infrafence_Agent::call('status');
         if (!$status['ok']) {
@@ -238,8 +231,11 @@ class ApiController extends pm_Controller_Action
             return null;
         }
         if (empty($status['agent_running'])) {
-            $this->send(Modules_Infrafence_Agent::error('agent_not_running'), 503);
+            $this->send(['agent_running' => false] + Modules_Infrafence_Agent::error('agent_not_running'), 503);
             return null;
+        }
+        if ($command === null) {
+            return $status;
         }
         $reply = Modules_Infrafence_Agent::call($command, $args);
         if (!$reply['ok']) {
@@ -250,84 +246,15 @@ class ApiController extends pm_Controller_Action
         return $reply;
     }
 
-    private function allowArgs(string $target, string $note, string $actor): array
+    private function allowArgs(string $ip, string $note, string $actor): array
     {
-        $args = [$target];
+        $args = [$ip];
         if ($note !== '') {
             array_push($args, '--note', $note);
         }
         array_push($args, '--actor', $actor);
 
         return $args;
-    }
-
-    /**
-     * Joins the agent's view of sites with the domains Plesk hosts, so that domains the agent
-     * does not cover yet are visible too.
-     */
-    private function mergeSites(array $agentSites, bool $agentAnswered = true): array
-    {
-        $byRoot = [];
-        foreach ($agentSites as $site) {
-            if (!is_array($site) || !is_string($site['docroot'] ?? null)) {
-                continue;
-            }
-            $byRoot[rtrim($site['docroot'], '/')] = [
-                'domain' => (string)($site['domain'] ?? ''),
-                'account' => (string)($site['account'] ?? ''),
-                'docroot' => rtrim($site['docroot'], '/'),
-                'coverage' => (string)($site['coverage'] ?? 'none'),
-                'scan_status' => (string)($site['scan_status'] ?? 'never'),
-                'last_scan' => $site['last_scan'] ?? null,
-                'files' => $site['files'] ?? null,
-                'in_plesk' => false,
-                'seen_by_agent' => true,
-            ];
-        }
-
-        try {
-            $domains = pm_Domain::getAllDomains();
-        } catch (Exception $e) {
-            $domains = [];
-        }
-        foreach ($domains as $domain) {
-            try {
-                if (!$domain->hasHosting()) {
-                    continue;
-                }
-                $root = rtrim((string)$domain->getDocumentRoot(), '/');
-                $name = (string)$domain->getDisplayName();
-                $account = (string)$domain->getSysUserLogin();
-            } catch (Exception $e) {
-                continue;
-            }
-            if ($root === '') {
-                continue;
-            }
-            if (isset($byRoot[$root])) {
-                $byRoot[$root]['in_plesk'] = true;
-                $byRoot[$root]['domain'] = $byRoot[$root]['domain'] ?: $name;
-                continue;
-            }
-            $byRoot[$root] = [
-                'domain' => $name,
-                'account' => $account,
-                'docroot' => $root,
-                'coverage' => $agentAnswered ? 'not_seen' : 'unknown',
-                'scan_status' => 'never',
-                'last_scan' => null,
-                'files' => null,
-                'in_plesk' => true,
-                'seen_by_agent' => false,
-            ];
-        }
-
-        $sites = array_values($byRoot);
-        usort($sites, function ($a, $b) {
-            return strcmp($a['domain'], $b['domain']);
-        });
-
-        return $sites;
     }
 
     private function log(string $event, string $target): void

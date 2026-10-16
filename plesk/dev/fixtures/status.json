@@ -1,12 +1,1 @@
-{
-  "ok": true,
-  "agent_version": "1.8.2",
-  "agent_running": true,
-  "connected": true,
-  "last_heartbeat": "2026-10-16T08:59:41Z",
-  "agent_id": "srv_7Hq2LkP9xW",
-  "hostname": "web01.example.net",
-  "plan": "pro",
-  "automode": "enforce",
-  "dashboard_url": "https://app.infrafence.com/servers/srv_7Hq2LkP9xW"
-}
+{"agent_id":42,"agent_running":true,"automode":null,"connected":true,"control_panel":"cpanel","dashboard_url":"https://app.infrafence.com/servers/42","last_heartbeat":"2026-10-16T11:59:20Z","last_sync":"2026-10-16T12:00:00Z","monitor_mode":false,"ok":true,"plan":"pro","suspended":false,"version":"1.0.23"}
