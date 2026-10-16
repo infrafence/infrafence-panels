@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "entries": [
+    {"ip": "203.0.113.10", "note": "Office", "actor": "dashboard:marco@example.net", "created": "2026-09-02T10:14:00Z"},
+    {"ip": "203.0.113.128/25", "note": "Monitoring (UptimeRobot)", "actor": "dashboard:marco@example.net", "created": "2026-09-02T10:15:12Z"},
+    {"ip": "2001:db8:41::/48", "note": "Backup provider", "actor": "plesk:admin", "created": "2026-10-01T07:40:51Z"}
+  ]
+}

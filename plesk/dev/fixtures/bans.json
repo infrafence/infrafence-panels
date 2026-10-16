@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "total": 6,
+  "bans": [
+    {"ip": "192.0.2.47", "reason": "ssh_bruteforce", "source": "local", "created": "2026-10-16T08:41:03Z", "expires": "2026-10-17T08:41:03Z"},
+    {"ip": "192.0.2.92", "reason": "wordpress_login_bruteforce", "source": "automode", "created": "2026-10-16T08:12:55Z", "expires": "2026-10-16T20:12:55Z"},
+    {"ip": "198.51.100.15", "reason": "smtp_auth_bruteforce", "source": "network", "created": "2026-10-16T06:30:00Z", "expires": "2026-10-23T06:30:00Z"},
+    {"ip": "2001:db8:3e3:8e6::17", "reason": "web_scanner", "source": "network", "created": "2026-10-16T05:02:19Z", "expires": "2026-10-19T05:02:19Z"},
+    {"ip": "198.51.100.204", "reason": "waf_rule_hits", "source": "local", "created": "2026-10-15T22:47:31Z", "expires": "2026-10-16T22:47:31Z"},
+    {"ip": "192.0.2.168", "reason": "manual", "source": "manual", "created": "2026-10-14T16:20:00Z", "expires": null}
+  ]
+}

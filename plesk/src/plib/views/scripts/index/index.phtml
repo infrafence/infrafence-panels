@@ -1,0 +1,11 @@
+<?php
+// Copyright 2026 InfraFence. Licensed under the Business Source License 1.1.
+$json = json_encode($this->params, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES);
+?>
+<link rel="stylesheet" href="<?php echo $this->escape($this->stylesheetUrl); ?>">
+<div id="<?php echo $this->escape($this->mountId); ?>" class="infrafence"></div>
+<script>
+    require([<?php echo json_encode($this->scriptUrl, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES); ?>], function (app) {
+        app.default(<?php echo $json; ?>);
+    });
+</script>

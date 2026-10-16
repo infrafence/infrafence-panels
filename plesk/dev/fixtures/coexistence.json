@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "mode": "coexist",
+  "firewall_owner": "plesk_firewall",
+  "tools": [
+    {"id": "fail2ban", "name": "fail2ban", "detected": true, "running": true, "version": "1.0.2", "actions": ["import_bans", "no_iptables"]},
+    {"id": "plesk_firewall", "name": "Plesk Firewall", "detected": true, "running": true, "version": "18.0.81", "actions": ["leave_firewall", "own_chain"]},
+    {"id": "modsecurity", "name": "ModSecurity", "detected": true, "running": true, "version": "2.9.7", "ruleset": "comodo_free", "actions": ["read_audit_log", "no_rule_changes"]},
+    {"id": "imunify360", "name": "Imunify360", "detected": false, "running": false, "version": null, "actions": ["defer_firewall", "defer_malware"]},
+    {"id": "bitninja", "name": "BitNinja", "detected": false, "running": false, "version": null, "actions": ["defer_firewall"]},
+    {"id": "monarx", "name": "Monarx", "detected": false, "running": false, "version": null, "actions": ["defer_malware"]},
+    {"id": "csf", "name": "CSF/lfd", "detected": false, "running": false, "version": null, "actions": ["import_bans", "defer_firewall"]},
+    {"id": "cphulk", "name": "cPHulk", "detected": false, "running": false, "version": null, "actions": ["import_bans"]}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "events": [
+    {"id": "evt_9f31", "type": "ip_banned", "severity": "medium", "source_ip": "192.0.2.47", "time": "2026-10-16T08:41:03Z", "source": "agent"},
+    {"id": "evt_9f30", "type": "ssh_bruteforce", "severity": "medium", "source_ip": "192.0.2.47", "time": "2026-10-16T08:40:58Z", "source": "agent"},
+    {"id": "evt_9f2c", "type": "ip_banned", "severity": "medium", "source_ip": "192.0.2.92", "time": "2026-10-16T08:12:55Z", "source": "automode"},
+    {"id": "evt_9f2a", "type": "wordpress_login_bruteforce", "severity": "medium", "source_ip": "192.0.2.92", "time": "2026-10-16T08:12:41Z", "source": "agent"},
+    {"id": "evt_9f22", "type": "malware_found", "severity": "critical", "source_ip": null, "time": "2026-10-16T07:58:12Z", "source": "agent"},
+    {"id": "evt_9f21", "type": "file_integrity_changed", "severity": "high", "source_ip": null, "time": "2026-10-16T07:58:10Z", "source": "agent"},
+    {"id": "evt_9f1b", "type": "ip_banned", "severity": "low", "source_ip": "198.51.100.15", "time": "2026-10-16T06:30:00Z", "source": "network"},
+    {"id": "evt_9f14", "type": "waf_block", "severity": "low", "source_ip": "198.51.100.204", "time": "2026-10-15T22:47:12Z", "source": "agent"},
+    {"id": "evt_9f0e", "type": "ip_unbanned", "severity": "info", "source_ip": "192.0.2.77", "time": "2026-10-15T17:05:44Z", "source": "panel", "actor": "plesk:admin"},
+    {"id": "evt_9f02", "type": "agent_started", "severity": "info", "source_ip": null, "time": "2026-10-15T03:00:07Z", "source": "agent"}
+  ]
+}

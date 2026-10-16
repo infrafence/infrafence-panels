@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "agent_version": "1.8.2",
+  "agent_running": true,
+  "connected": true,
+  "last_heartbeat": "2026-10-16T08:59:41Z",
+  "agent_id": "srv_7Hq2LkP9xW",
+  "hostname": "web01.example.net",
+  "plan": "pro",
+  "automode": "enforce",
+  "dashboard_url": "https://app.infrafence.com/servers/srv_7Hq2LkP9xW"
+}
