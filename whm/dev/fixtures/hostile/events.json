@@ -1,0 +1,3 @@
+{"ok": true, "events": [
+  {"type": "<script>alert(12)</script>", "severity": "high", "source_ip": "<img src=x onerror=alert(13)>", "time": "2026-10-16T09:00:00Z", "detail": "<iframe src=//evil.example>"}
+]}

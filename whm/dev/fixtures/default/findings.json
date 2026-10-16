@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "findings": [
+    {"id": "fnd_81c2", "path": "/home/greenleaf/public_html/wp-content/uploads/2026/10/cache.php", "kind": "malware", "signature": "PHP web shell (obfuscated eval)", "severity": "critical", "status": "open", "detected": "2026-10-16T09:12:30Z"},
+    {"id": "fnd_81b7", "path": "/home/greenleaf/public_html/wp-includes/class-wp-hook.php", "kind": "integrity", "signature": "WordPress core file differs from 6.8.3", "severity": "high", "status": "open", "detected": "2026-10-16T09:12:28Z"},
+    {"id": "fnd_7f40", "path": "/home/northwind/public_html/shop/admin/.cache/x.js", "kind": "malware", "signature": "JavaScript card skimmer", "severity": "high", "status": "quarantined", "detected": "2026-10-15T21:03:11Z"},
+    {"id": "fnd_7e12", "path": "/etc/passwd", "kind": "integrity", "signature": "System file changed outside package manager", "severity": "medium", "status": "resolved", "detected": "2026-10-14T02:30:00Z"},
+    {"id": "fnd_7d09", "path": "/home/brightdental/public_html/index.php", "kind": "malware", "signature": "SEO spam injection", "severity": "medium", "status": "open", "detected": "2026-10-13T18:44:52Z"},
+    {"id": "fnd_7a55", "path": "/home/northwind/public_html/.htaccess", "kind": "integrity", "signature": "Redirect rule added", "severity": "low", "status": "ignored", "detected": "2026-10-11T07:15:00Z"}
+  ]
+}

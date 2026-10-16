@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "events": [
+    {"id": "evt_9a01", "type": "ssh_bruteforce", "severity": "high", "source_ip": "203.0.113.47", "time": "2026-10-16T09:51:12Z"},
+    {"id": "evt_9a00", "type": "ban", "severity": "info", "source_ip": "203.0.113.47", "time": "2026-10-16T09:51:12Z"},
+    {"id": "evt_99f3", "type": "wp_login_bruteforce", "severity": "medium", "source_ip": "198.51.100.23", "time": "2026-10-16T09:37:01Z"},
+    {"id": "evt_99e8", "type": "malware_found", "severity": "critical", "source_ip": null, "time": "2026-10-16T09:12:30Z"},
+    {"id": "evt_99e7", "type": "file_changed", "severity": "high", "source_ip": null, "time": "2026-10-16T09:12:28Z"},
+    {"id": "evt_99d1", "type": "port_scan", "severity": "medium", "source_ip": "192.0.2.150", "time": "2026-10-16T08:12:40Z"},
+    {"id": "evt_99c4", "type": "mail_bruteforce", "severity": "medium", "source_ip": "2001:db8:4f1::3a", "time": "2026-10-16T07:55:19Z"},
+    {"id": "evt_99b0", "type": "waf_block", "severity": "high", "source_ip": "203.0.113.9", "time": "2026-10-16T06:29:58Z"},
+    {"id": "evt_99a2", "type": "waf_block", "severity": "medium", "source_ip": "203.0.113.9", "time": "2026-10-16T06:27:14Z"},
+    {"id": "evt_9981", "type": "unban", "severity": "info", "source_ip": "198.51.100.88", "time": "2026-10-16T05:10:00Z"},
+    {"id": "evt_9970", "type": "cpanel_bruteforce", "severity": "medium", "source_ip": "192.0.2.77", "time": "2026-10-15T22:41:05Z"},
+    {"id": "evt_9944", "type": "ftp_bruteforce", "severity": "low", "source_ip": "2001:db8:a0b:12f0::1", "time": "2026-10-14T11:09:31Z"}
+  ]
+}

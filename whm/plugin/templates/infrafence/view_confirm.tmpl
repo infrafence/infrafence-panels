@@ -1,0 +1,26 @@
+[%- a = data.act -%]
+<div class="panel panel-default ifn-confirm">
+  <div class="panel-heading"><h2 class="panel-title">[% L.t('confirm.' _ a.name _ '.title') | html %]</h2></div>
+  <div class="panel-body">
+    <p>[% L.t('confirm.' _ a.name _ '.text', ip => a.ip, path => a.path) | html %]</p>
+    <table class="table ifn-dl">
+      [%- IF a.ip %]<tr><th scope="row">[% L.t('col.ip') | html %]</th><td class="ifn-ip">[% a.ip | html %]</td></tr>[% END %]
+      [%- IF a.name == 'allow' && a.note.length %]<tr><th scope="row">[% L.t('col.note') | html %]</th><td>[% a.note | html %]</td></tr>[% END %]
+      [%- IF a.path %]
+      [%- IF a.site.domain %]<tr><th scope="row">[% L.t('col.domain') | html %]</th><td>[% a.site.domain | html %] <span class="text-muted">([% a.site.account | html %])</span></td></tr>[% END %]
+      <tr><th scope="row">[% L.t('col.docroot') | html %]</th><td class="ifn-mono">[% a.path | html %]</td></tr>
+      [%- END %]
+    </table>
+    <form method="post" action="[% data.script | html %]" class="ifn-confirm-form" data-ifn-once>
+      <input type="hidden" name="page" value="[% a.page | html %]">
+      <input type="hidden" name="action" value="[% a.name | html %]">
+      [%- IF a.ip %]<input type="hidden" name="ip" value="[% a.ip | html %]">[% END %]
+      [%- IF a.name == 'allow' %]<input type="hidden" name="note" value="[% a.note | html %]">[% END %]
+      [%- IF a.path %]<input type="hidden" name="path" value="[% a.path | html %]">[% END %]
+      <input type="hidden" name="confirm" value="1">
+      <input type="hidden" name="csrf" value="[% data.csrf | html %]">
+      <button type="submit" class="btn btn-primary">[% L.t('confirm.' _ a.name _ '.button') | html %]</button>
+      <a class="btn btn-link" href="[% data.script | html %]?page=[% a.page | uri | html %]">[% L.t('confirm.cancel') | html %]</a>
+    </form>
+  </div>
+</div>

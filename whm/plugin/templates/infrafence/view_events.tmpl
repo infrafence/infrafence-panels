@@ -1,0 +1,29 @@
+<div class="ifn-head">
+  <h2>[% L.t('events.title') | html %]</h2>
+  <p class="text-muted">[% L.t('events.intro') | html %]</p>
+</div>
+[%- IF data.events.size %]
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-events' %]
+<div class="table-responsive">
+<table class="table table-striped table-condensed ifn-table" id="ifn-events">
+  <thead><tr>
+    <th scope="col">[% L.t('col.time') | html %]</th>
+    <th scope="col">[% L.t('col.event') | html %]</th>
+    <th scope="col">[% L.t('col.severity') | html %]</th>
+    <th scope="col">[% L.t('col.source_ip') | html %]</th>
+  </tr></thead>
+  <tbody>
+  [%- FOREACH e IN data.events %]
+  <tr>
+    <td class="ifn-nowrap"><time datetime="[% e.time | html %]">[% L.time(e.time) | html %]</time></td>
+    <td>[% L.label('event', e.type) | html %][% IF e.detail %]<br><small class="text-muted">[% e.detail | html %]</small>[% END %]</td>
+    <td><span class="label label-[% data.sev_class.${e.severity} || 'default' | html %]">[% L.label('severity', e.severity) | html %]</span></td>
+    <td class="ifn-ip">[% IF e.source_ip %][% e.source_ip | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+  </tr>
+  [%- END %]
+  </tbody>
+</table>
+</div>
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('events.empty') | html %]</p></div>
+[%- END %]

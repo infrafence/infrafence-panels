@@ -1,0 +1,5 @@
+<ul class="nav nav-tabs ifn-tabs" role="tablist">
+[%- FOREACH p IN data.pages %]
+  <li role="presentation"[% IF p == data.page %] class="active"[% END %]><a href="[% data.script | html %]?page=[% p | uri %]"[% IF p == data.page %] aria-current="page"[% END %]>[% L.t('nav.' _ p) | html %]</a></li>
+[%- END %]
+</ul>

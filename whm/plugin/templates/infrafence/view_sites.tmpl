@@ -1,0 +1,53 @@
+<div class="ifn-head">
+  <h2>[% L.t('sites.title') | html %]</h2>
+  <p class="text-muted">[% L.t('sites.intro') | html %]</p>
+</div>
+[%- IF data.site_count %]
+<p class="ifn-summary">
+  [% L.t('sites.summary', sites => L.number(data.site_count), accounts => L.number(data.accounts.size)) | html %]
+  [%- FOREACH c IN ['full', 'partial', 'none'] %][% IF data.coverage_count.$c %]
+  <span class="label label-[% IF c == 'full' %]success[% ELSIF c == 'partial' %]warning[% ELSE %]default[% END %]">[% L.label('coverage', c) | html %]: [% data.coverage_count.$c | html %]</span>
+  [%- END %][% END %]
+</p>
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-sites' %]
+<div class="table-responsive">
+<table class="table table-condensed ifn-table" id="ifn-sites">
+  <thead><tr>
+    <th scope="col">[% L.t('col.domain') | html %]</th>
+    <th scope="col">[% L.t('col.docroot') | html %]</th>
+    <th scope="col">[% L.t('col.coverage') | html %]</th>
+    <th scope="col">[% L.t('col.last_scan') | html %]</th>
+    <th scope="col" class="text-right">[% L.t('col.files') | html %]</th>
+    <th scope="col" class="ifn-actions"><span class="sr-only">[% L.t('col.actions') | html %]</span></th>
+  </tr></thead>
+  [%- FOREACH a IN data.accounts %]
+  <tbody class="ifn-group">
+  <tr class="ifn-account" data-ifn-keep>
+    <th colspan="6" scope="rowgroup">[% a.account | html %][% IF a.owner && a.owner != 'root' %] <span class="text-muted">&middot; [% L.t('sites.reseller', owner => a.owner) | html %]</span>[% END %]</th>
+  </tr>
+  [%- FOREACH s IN a.sites %]
+  <tr>
+    <td>[% s.domain | html %] <span class="text-muted ifn-type">[% L.label('domain_type', s.type) | html %]</span>
+      [%- IF s.findings_open %] <a class="label label-danger" href="[% data.script | html %]?page=findings">[% L.t('sites.findings', n => s.findings_open) | html %]</a>[% END %]</td>
+    <td class="ifn-path"><span class="ifn-mono" title="[% s.docroot | html %]">[% s.docroot | html %]</span></td>
+    <td>
+      [%- IF s.scan == 'queued' || s.scan == 'running' %]<span class="label label-info">[% L.label('scan', s.scan) | html %]</span>
+      [%- ELSE %]<span class="label label-[% IF s.coverage == 'full' %]success[% ELSIF s.coverage == 'partial' %]warning[% ELSE %]default[% END %]">[% L.label('coverage', s.coverage || 'none') | html %]</span>[% END %]</td>
+    <td class="ifn-nowrap">[% IF s.last_scan %]<time datetime="[% s.last_scan | html %]" title="[% L.time(s.last_scan) | html %]">[% L.ago(s.last_scan) | html %]</time>[% ELSE %]<span class="text-muted">[% L.t('sites.never') | html %]</span>[% END %]</td>
+    <td class="text-right">[% IF s.files.defined %][% L.number(s.files) | html %][% END %]</td>
+    <td class="ifn-actions">
+      [%- IF s.scan == 'queued' || s.scan == 'running' %]
+      <button type="button" class="btn btn-default btn-xs" disabled>[% L.t('action.scan') | html %]</button>
+      [%- ELSE %]
+      <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=sites&amp;action=scan&amp;path=[% s.docroot | uri | html %]">[% L.t('action.scan') | html %]</a>
+      [%- END %]
+    </td>
+  </tr>
+  [%- END %]
+  </tbody>
+  [%- END %]
+</table>
+</div>
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('sites.empty') | html %]</p></div>
+[%- END %]

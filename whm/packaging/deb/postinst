@@ -1,0 +1,11 @@
+#!/bin/sh
+# Register with WHM. No service is restarted.
+set -e
+if [ "$1" = configure ]; then
+    if [ -x /usr/local/cpanel/bin/register_appconfig ]; then
+        /usr/local/share/infrafence-whm/install.sh --register-only || true
+    else
+        echo "infrafence-whm: cPanel & WHM not found; the plugin is installed but not registered" >&2
+    fi
+fi
+exit 0

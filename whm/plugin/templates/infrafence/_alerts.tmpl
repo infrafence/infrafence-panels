@@ -1,0 +1,32 @@
+[%- s = data.status -%]
+[%- IF s && !s.ok %]
+<div class="alert alert-danger" role="alert">
+  <strong>[% IF L.has('error.' _ s.error) %][% L.t('error.' _ s.error) | html %][% ELSE %][% L.t('alert.unreachable.title') | html %][% END %]</strong>
+  [% L.t('alert.unreachable.text') | html %]
+  [% INCLUDE 'infrafence/_error_detail.tmpl' e = s %]
+</div>
+[%- ELSIF s && !s.agent_running %]
+<div class="alert alert-warning" role="alert">
+  <strong>[% L.t('alert.stopped.title') | html %]</strong>
+  [% L.t('alert.stopped.text') | html %]
+  <code>systemctl status infrafence-agent</code>
+</div>
+[%- END %]
+[%- IF data.notice %]
+<div class="alert alert-success" role="status">
+  [% L.t('notice.' _ data.notice.code, ip => data.notice.ip, path => data.notice.path) | html %]
+</div>
+[%- END %]
+[%- FOREACH e IN data.errors %]
+<div class="alert alert-danger" role="alert">
+  [% IF e.action %]<strong>[% L.t('error.action_failed.' _ e.action) | html %]</strong>[% END %]
+  [% IF L.has('error.' _ e.error) %][% L.t('error.' _ e.error) | html %][% ELSE %][% L.t('error.generic') | html %][% END %]
+  [% INCLUDE 'infrafence/_error_detail.tmpl' %]
+</div>
+[%- END %]
+[%- IF data.list_error && s.ok && s.agent_running %]
+<div class="alert alert-danger" role="alert">
+  [% L.t('error.list') | html %]
+  [% INCLUDE 'infrafence/_error_detail.tmpl' e = data.list_error %]
+</div>
+[%- END %]

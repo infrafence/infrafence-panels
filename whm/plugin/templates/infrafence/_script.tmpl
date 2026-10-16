@@ -1,0 +1,61 @@
+<script>
+(function () {
+  "use strict";
+  var root = document.getElementById("ifn");
+  if (!root) { return; }
+
+  // Filter the rows of a table as the user types.
+  function count(table) {
+    var out = root.querySelector('[data-ifn-shown="' + table.id + '"]');
+    if (!out) { return; }
+    var rows = table.querySelectorAll("tbody tr:not([data-ifn-keep])"), shown = 0;
+    for (var i = 0; i < rows.length; i++) { if (!rows[i].hidden) { shown++; } }
+    out.textContent = shown === rows.length ? "" : out.getAttribute("data-ifn-of").replace("{shown}", shown).replace("{total}", rows.length);
+  }
+  Array.prototype.forEach.call(root.querySelectorAll("[data-ifn-filter]"), function (input) {
+    var table = document.getElementById(input.getAttribute("data-ifn-filter"));
+    if (!table) { return; }
+    input.addEventListener("input", function () {
+      var q = input.value.trim().toLowerCase();
+      Array.prototype.forEach.call(table.tBodies, function (body) {
+        var any = false;
+        Array.prototype.forEach.call(body.rows, function (row) {
+          if (row.hasAttribute("data-ifn-keep")) { return; }
+          row.hidden = q !== "" && row.textContent.toLowerCase().indexOf(q) === -1;
+          if (!row.hidden) { any = true; }
+        });
+        Array.prototype.forEach.call(body.querySelectorAll("[data-ifn-keep]"), function (row) { row.hidden = !any; });
+      });
+      count(table);
+    });
+  });
+
+  // "Show N" selectors apply on change.
+  Array.prototype.forEach.call(root.querySelectorAll("[data-ifn-autosubmit]"), function (sel) {
+    sel.addEventListener("change", function () { sel.form.submit(); });
+  });
+
+  // Confirmation forms are sent once.
+  Array.prototype.forEach.call(root.querySelectorAll("form[data-ifn-once]"), function (form) {
+    form.addEventListener("submit", function (ev) {
+      if (form.getAttribute("data-sent")) { ev.preventDefault(); return; }
+      form.setAttribute("data-sent", "1");
+      var b = form.querySelector("button[type=submit]");
+      if (b) { b.disabled = true; }
+    });
+  });
+
+  // Copy the install command.
+  Array.prototype.forEach.call(root.querySelectorAll("[data-ifn-copy]"), function (btn) {
+    btn.addEventListener("click", function () {
+      var src = document.getElementById(btn.getAttribute("data-ifn-copy"));
+      if (!src || !navigator.clipboard) { return; }
+      navigator.clipboard.writeText(src.textContent.trim()).then(function () {
+        var label = btn.textContent;
+        btn.textContent = btn.getAttribute("data-ifn-done");
+        setTimeout(function () { btn.textContent = label; }, 2000);
+      });
+    });
+  });
+})();
+</script>

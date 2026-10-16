@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "total": 9,
+  "bans": [
+    {"ip": "203.0.113.47", "reason": "SSH brute force: 38 failed logins in 5 min", "source": "local", "created": "2026-10-16T09:51:12Z", "expires": "2026-10-17T09:51:12Z"},
+    {"ip": "198.51.100.23", "reason": "WordPress login brute force on 4 sites", "source": "network", "created": "2026-10-16T09:37:02Z", "expires": "2026-10-23T09:37:02Z"},
+    {"ip": "192.0.2.150", "reason": "Port scan (412 ports)", "source": "automode", "created": "2026-10-16T08:12:44Z", "expires": "2026-10-16T20:12:44Z"},
+    {"ip": "2001:db8:4f1::3a", "reason": "Mail login brute force (dovecot)", "source": "local", "created": "2026-10-16T07:55:19Z", "expires": "2026-10-17T07:55:19Z"},
+    {"ip": "203.0.113.9", "reason": "Repeated ModSecurity blocks (SQL injection)", "source": "automode", "created": "2026-10-16T06:30:00Z", "expires": "2026-10-19T06:30:00Z"},
+    {"ip": "198.51.100.201", "reason": "Known botnet address", "source": "network", "created": "2026-10-16T03:02:51Z", "expires": "2026-11-15T03:02:51Z"},
+    {"ip": "192.0.2.77", "reason": "cPanel login brute force", "source": "local", "created": "2026-10-15T22:41:07Z", "expires": "2026-10-16T22:41:07Z"},
+    {"ip": "203.0.113.200", "reason": "Banned by root from WHM", "source": "manual", "created": "2026-10-14T16:20:00Z", "expires": null},
+    {"ip": "2001:db8:a0b:12f0::1", "reason": "FTP brute force", "source": "local", "created": "2026-10-14T11:09:33Z", "expires": "2026-10-21T11:09:33Z"}
+  ]
+}

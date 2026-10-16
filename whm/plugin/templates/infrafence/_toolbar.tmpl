@@ -1,0 +1,21 @@
+[%#  Filter box and the "show N" selector shared by the list views. -%]
+<form class="form-inline ifn-toolbar" method="get" action="[% data.script | html %]">
+  <input type="hidden" name="page" value="[% data.page | html %]">
+  [%- IF data.kind %]<input type="hidden" name="kind" value="[% data.kind | html %]">[% END %]
+  <div class="form-group">
+    <label class="sr-only" for="ifn-filter">[% L.t('list.filter') | html %]</label>
+    <input type="search" id="ifn-filter" class="form-control input-sm" placeholder="[% L.t('list.filter') | html %]" data-ifn-filter="[% table | html %]" autocomplete="off">
+  </div>
+  [%- IF data.limits %]
+  <div class="form-group">
+    <label for="ifn-limit">[% L.t('list.show') | html %]</label>
+    <select id="ifn-limit" name="limit" class="form-control input-sm" data-ifn-autosubmit>
+      [%- FOREACH n IN data.limits %]
+      <option value="[% n | html %]"[% IF n == data.limit %] selected[% END %]>[% n | html %]</option>
+      [%- END %]
+    </select>
+    <noscript><button type="submit" class="btn btn-default btn-sm">[% L.t('list.apply') | html %]</button></noscript>
+  </div>
+  [%- END %]
+  <span class="ifn-shown text-muted" data-ifn-shown="[% table | html %]" data-ifn-of="[% L.t('list.shown') | html %]"></span>
+</form>

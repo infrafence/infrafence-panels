@@ -1,0 +1,12 @@
+Package: infrafence-whm
+Version: @VERSION@
+Section: admin
+Priority: optional
+Architecture: all
+Maintainer: Infrafence <info@infrafence.com>
+Homepage: https://infrafence.com
+Description: InfraFence plugin for cPanel & WHM
+ WHM » Plugins » InfraFence: protection status, bans, allow list, findings,
+ events, coexistence with other security tools, and site scan coverage, read
+ from the InfraFence agent installed on the server. The plugin stores no
+ credentials and never changes the firewall or ModSecurity by itself.

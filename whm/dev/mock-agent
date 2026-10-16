@@ -1,0 +1,150 @@
+#!/usr/bin/env perl
+
+# Stand-in for `infrafence-agent` during development and tests. It answers
+# `infrafence-agent panel <command> [args] --json` as described in
+# docs/panel-contract.md, from the JSON files in dev/fixtures/.
+#
+# Environment:
+#   MOCK_AGENT_SCENARIO  default | stopped | empty | hostile   (default: default)
+#                        Files missing from a scenario are taken from default/.
+#                        In "stopped", every command but status answers with
+#                        stopped/_error.json, as an agent whose service is down.
+#   MOCK_AGENT_FIXTURES  fixtures directory (default: next to this script)
+#   MOCK_AGENT_LOG       append each argv, as a JSON array, to this file
+#   MOCK_AGENT_FAULT     timeout | garbage | mismatch | stderr  (test faults)
+
+use strict;
+use warnings;
+
+use File::Basename qw(dirname);
+use JSON::PP ();
+
+my $JSON     = JSON::PP->new->canonical;
+my $fixtures = $ENV{MOCK_AGENT_FIXTURES} || dirname(__FILE__) . '/fixtures';
+my $scenario = $ENV{MOCK_AGENT_SCENARIO} || 'default';
+
+if ( my $log = $ENV{MOCK_AGENT_LOG} ) {
+    open my $fh, '>>', $log or die "cannot write $log: $!\n";
+    print {$fh} $JSON->encode( [@ARGV] ), "\n";
+    close $fh;
+}
+
+my $fault = $ENV{MOCK_AGENT_FAULT} || '';
+if ( $fault eq 'timeout' ) { sleep 30; exit 0 }
+if ( $fault eq 'garbage' ) { print "InfraFence agent 1.8.3\nusage: ...\n"; exit 0 }
+if ( $fault eq 'stderr' )  { print STDERR "warning: noise on stderr\n" }
+
+sub reply {
+    my ($r) = @_;
+    print $JSON->encode($r), "\n";
+    my $code = $r->{ok} ? 0 : 1;
+    $code = 1 if $fault eq 'mismatch';
+    exit $code;
+}
+
+sub fail { reply( { ok => JSON::PP::false, error => $_[0], message => $_[1] || '' } ) }
+
+sub fixture {
+    my ($name) = @_;
+    for my $dir ( "$fixtures/$scenario", "$fixtures/default" ) {
+        my $file = "$dir/$name.json";
+        next unless -f $file;
+        open my $fh, '<:raw', $file or die "cannot read $file: $!\n";
+        local $/;
+        my $data = JSON::PP->new->utf8->decode(<$fh>);
+        return $data;
+    }
+    fail( 'internal', "no fixture for $name" );
+}
+
+my @args = @ARGV;
+fail( 'invalid_args', 'expected: panel <command> ... --json' ) unless @args && shift(@args) eq 'panel';
+my $json = grep { $_ eq '--json' } @args;
+@args = grep { $_ ne '--json' } @args;
+unless ($json) { print "human output is not part of the contract\n"; exit 2 }
+
+my $command = shift @args;
+fail( 'invalid_args', 'missing command' ) unless defined $command;
+
+# Options and positional arguments per command.
+my %SPEC = (
+    status      => { pos => 0, opts => [] },
+    bans        => { pos => 0, opts => ['limit'] },
+    unban       => { pos => 1, opts => ['actor'], need => ['actor'] },
+    allow       => { pos => 1, opts => [ 'note', 'actor' ], need => ['actor'] },
+    allowlist   => { pos => 0, opts => [] },
+    disallow    => { pos => 1, opts => ['actor'], need => ['actor'] },
+    findings    => { pos => 0, opts => ['limit'] },
+    events      => { pos => 0, opts => [ 'limit', 'since' ] },
+    coexistence => { pos => 0, opts => [] },
+    sites       => { pos => 0, opts => [] },
+    scan        => { pos => 1, opts => ['actor'], need => ['actor'] },
+);
+my $spec = $SPEC{$command} or fail( 'unknown_command', "unknown command: $command" );
+
+my ( @pos, %opt );
+while (@args) {
+    my $a = shift @args;
+    if ( $a =~ /\A--([a-z]+)\z/ ) {
+        my $name = $1;
+        fail( 'invalid_args', "unknown option --$name for $command" ) unless grep { $_ eq $name } @{ $spec->{opts} };
+        fail( 'invalid_args', "--$name needs a value" ) unless @args;
+        $opt{$name} = shift @args;
+    }
+    else {
+        push @pos, $a;
+    }
+}
+fail( 'invalid_args', "$command takes $spec->{pos} argument(s)" ) unless @pos == $spec->{pos};
+for ( @{ $spec->{need} || [] } ) {
+    fail( 'invalid_args', "--$_ is required" ) unless defined $opt{$_} && length $opt{$_};
+}
+if ( defined $opt{limit} ) {
+    fail( 'invalid_args', '--limit must be a positive number' ) unless $opt{limit} =~ /\A[1-9][0-9]{0,5}\z/;
+}
+
+my $status = fixture('status');
+reply($status) if $command eq 'status';
+reply( fixture('_error') ) if $scenario eq 'stopped';
+
+sub limited {
+    my ( $data, $field ) = @_;
+    if ( defined $opt{limit} && ref $data->{$field} eq 'ARRAY' && @{ $data->{$field} } > $opt{limit} ) {
+        $data->{total} = scalar @{ $data->{$field} } if $field eq 'bans' && !defined $data->{total};
+        splice @{ $data->{$field} }, $opt{limit};
+    }
+    reply($data);
+}
+
+sub ip_ok { $_[0] =~ /\A(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-f:]+)\z/i }
+
+limited( fixture('bans'),     'bans' )     if $command eq 'bans';
+limited( fixture('findings'), 'findings' ) if $command eq 'findings';
+limited( fixture('events'),   'events' )   if $command eq 'events';
+reply( fixture($command) ) if grep { $command eq $_ } qw(allowlist coexistence sites);
+
+my $target = $pos[0];
+if ( $command eq 'unban' ) {
+    fail( 'invalid_ip', "not an IP address: $target" ) unless ip_ok($target);
+    fail( 'not_found', "no active ban for $target" ) unless grep { $_->{ip} eq $target } @{ fixture('bans')->{bans} };
+    reply( { ok => JSON::PP::true, ip => $target } );
+}
+if ( $command eq 'allow' ) {
+    fail( 'invalid_ip', "not an IP address: $target" ) unless ip_ok($target);
+    fail( 'already_allowed', "$target is already on the allow list" )
+      if grep { $_->{ip} eq $target } @{ fixture('allowlist')->{entries} };
+    reply( { ok => JSON::PP::true, ip => $target, note => defined $opt{note} ? $opt{note} : '' } );
+}
+if ( $command eq 'disallow' ) {
+    fail( 'invalid_ip', "not an IP address: $target" ) unless ip_ok($target);
+    fail( 'not_found', "$target is not on the allow list" )
+      unless grep { $_->{ip} eq $target } @{ fixture('allowlist')->{entries} };
+    reply( { ok => JSON::PP::true, ip => $target } );
+}
+if ( $command eq 'scan' ) {
+    fail( 'unknown_path', "not a known document root: $target" )
+      unless grep { defined $_->{docroot} && $_->{docroot} eq $target } @{ fixture('sites')->{sites} };
+    reply( { ok => JSON::PP::true, path => $target, scan_id => 'scn_' . substr( unpack( 'H*', $target ), 0, 10 ) } );
+}
+
+fail( 'internal', "unhandled command $command" );

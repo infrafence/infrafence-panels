@@ -1,0 +1,7 @@
+#!/bin/sh
+# Unregister from WHM on removal (not on upgrade).
+set -e
+if [ "$1" = remove ] || [ "$1" = purge ]; then
+    /usr/local/share/infrafence-whm/uninstall.sh --unregister-only || true
+fi
+exit 0

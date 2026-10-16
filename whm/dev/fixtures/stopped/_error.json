@@ -1,0 +1,1 @@
+{"ok": false, "error": "agent_not_running", "message": "The agent is not running (no socket at /run/infrafence/panel.sock)."}

@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "entries": [
+    {"ip": "198.51.100.4", "note": "Office, Milan", "actor": "root", "created": "2026-09-02T08:14:00Z"},
+    {"ip": "192.0.2.10", "note": "Monitoring (uptime checks)", "actor": "root", "created": "2026-08-21T15:40:12Z"},
+    {"ip": "2001:db8:1::25", "note": "Backup server", "actor": "root", "created": "2026-07-30T10:02:45Z"}
+  ]
+}

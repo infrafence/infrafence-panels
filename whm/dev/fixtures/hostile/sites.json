@@ -1,0 +1,3 @@
+{"ok": true, "sites": [
+  {"account": "<script>alert(14)</script>", "owner": "<b>r</b>", "domain": "x\"><svg onload=alert(15)>.example", "type": "main", "docroot": "/home/x/\"><script>alert(16)</script>", "coverage": "<i>full</i>", "last_scan": null, "files": "<b>1</b>", "findings_open": 0}
+]}
