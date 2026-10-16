@@ -133,6 +133,22 @@ is( $res->{data}{view}, 'confirm', 'GET shows confirmation' );
 is( $res->{data}{act}{ip}, '203.0.113.7', 'confirm ip' );
 is_deeply( mutating(), [], 'GET changes nothing' );
 
+for my $case (
+    [ '203.0.113.7',   'local',    '2026-10-17T12:00:00Z', 'expiry within 30 days' ],
+    [ '198.51.100.23', 'automode', '2026-10-16T16:00:00Z', 'automode ban' ],
+    [ '192.0.2.50',    'network',  '2026-10-18T00:00:00Z', 'network ban' ],
+    [ '198.51.100.9',  'manual',   '2026-11-15T12:01:00Z', 'permanent ban: 30 days from now' ],
+  )
+{
+    my ( $ip, $source, $until, $name ) = @$case;
+    $res = run_app( params => { page => 'bans', action => 'unban', ip => $ip } );
+    is( $res->{data}{act}{source}, $source, "confirm: source, $name" );
+    is( $res->{data}{act}{until},  $until,  "confirm: lifted until, $name" );
+}
+$res = run_app( params => { page => 'bans', action => 'unban', ip => '192.0.2.99' } );
+is( $res->{data}{view}, 'confirm', 'unknown ban still confirms (the agent decides)' );
+ok( !$res->{data}{act}{until}, 'no date for an unknown ban' );
+
 $res = run_app( method => 'POST', params => { action => 'unban', ip => '203.0.113.7', csrf => TOKEN }, log => $log );
 is( $res->{data}{view}, 'confirm', 'POST without confirm=1 shows confirmation' );
 is_deeply( mutating(), [], 'nothing changed' );
@@ -171,7 +187,7 @@ is_deeply( mutating(), [], 'nothing changed' );
 
 $res = run_app( method => 'POST', params => { %unban, csrf => TOKEN }, log => $log );
 is( $res->{code}, 303, 'unban redirects' );
-is( $res->{location}, 'index.cgi?page=bans&notice=unban_ok&ip=203.0.113.7&until=2026-10-17T12%3A00%3A00Z', 'redirect carries the end of the lift' );
+is( $res->{location}, 'index.cgi?page=bans&notice=unban_ok&ip=203.0.113.7&until=2026-10-17T12%3A00%3A00Z&source=local', 'redirect carries the end of the lift and the source' );
 is_deeply( mutating(), [ [qw(panel unban 203.0.113.7 --actor root --json)] ], 'unban argv' );
 
 $res = run_app( method => 'POST', referer => undef,
@@ -257,6 +273,10 @@ $res = run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.1
 is_deeply( $res->{data}{notice}, { code => 'unban_ok', ip => '203.0.113.7', unreported => 1, threat_feed => 1, until => '2026-10-17T12:00:00Z' }, 'notice with flags' );
 $res = run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7', until => '"><script>' } );
 ok( !exists $res->{data}{notice}{until}, 'bad until dropped' );
+$res = run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7', source => 'network' } );
+is( $res->{data}{notice}{source}, 'network', 'source kept' );
+$res = run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7', source => '<b>' } );
+ok( !exists $res->{data}{notice}{source}, 'unknown source dropped' );
 $res = run_app( params => { page => 'allowlist', ip => '192.0.2.8' } );
 is( $res->{data}{form}{ip}, '192.0.2.8', 'form pre-filled from ?ip=' );
 $res = run_app( params => { page => 'allowlist', notice => 'allow_ok', ip => '192.0.2.8' } );

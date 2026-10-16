@@ -3,7 +3,7 @@ RELEASE ?= 9
 IMAGE   := infrafence-whm-test:alma$(RELEASE)
 SHOTS   ?= docs/screenshots
 
-.PHONY: image test install-test packages package-test screenshots all
+.PHONY: image test install-test packages package-test screenshots lab-up lab-down all
 
 image:
 	docker build -q --build-arg BASE=almalinux:$(RELEASE) -t $(IMAGE) -f dev/Dockerfile.test dev >/dev/null
@@ -24,5 +24,12 @@ package-test: packages
 
 screenshots:
 	tmp=$$(mktemp -d) && sh dev/screenshots.sh "$$tmp" en && cp "$$tmp"/png/*.png $(SHOTS)/ && rm -rf "$$tmp"
+
+# Containers left running with the plugin installed, for manual checks.
+lab-up:
+	sh test/lab.sh up
+
+lab-down:
+	sh test/lab.sh down
 
 all: test install-test package-test

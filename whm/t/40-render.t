@@ -12,7 +12,7 @@ my @PAGES = qw(overview bans allowlist findings events coexistence sites);
 sub no_raw_keys {
     my ( $html, $name ) = @_;
     # A missing translation shows up as its key, e.g. "bans.title".
-    my @raw = $html =~ />\s*((?:nav|alert|notice|error|overview|missing|list|col|action|bans|allow|findings|events|coex|coex_action|mode|sites|confirm|time|plan|automode|source|allow_source|kind|severity|finding_status|event|event_source|tool_kind|coverage|domain_type)\.[a-z_.]+)\s*</g;
+    my @raw = $html =~ />\s*((?:nav|alert|notice|error|overview|missing|list|col|action|bans|allow|findings|events|coex|coex_action|mode|sites|confirm|time|plan|automode|source|allow_source|kind|severity|finding_status|event|event_source|tool_kind|coverage|domain_type|unban)\.[a-z_.]+)\s*</g;
     is_deeply( \@raw, [], "$name: no untranslated keys" ) or diag join ', ', @raw;
 }
 
@@ -40,7 +40,10 @@ for my $lang (qw(en it es fr de pt)) {
     my $notice = render( run_app( lang => $lang, params => { page => 'bans', notice => 'allow_ok', ip => '192.0.2.1',
         banned => 1, unreported => 1, threat_feed => 1, pending => 1, own => 1 } ) );
     no_raw_keys( $notice, "$lang/notices" );
-    $notice = render( run_app( lang => $lang, params => { page => 'bans', notice => 'unban_ok', ip => '192.0.2.1', until => '2026-10-17T12:00:00Z' } ) );
+    $notice = render( run_app( lang => $lang, params => { page => 'bans', notice => 'unban_ok', ip => '192.0.2.1', until => '2026-10-17T12:00:00Z', source => 'network' } ) );
+    for my $ip (qw(192.0.2.50 198.51.100.23 198.51.100.9 192.0.2.99)) {
+        no_raw_keys( render( run_app( lang => $lang, params => { page => 'bans', action => 'unban', ip => $ip } ) ), "$lang/confirm unban $ip" );
+    }
     no_raw_keys( $notice, "$lang/unban notice" );
     like( $notice, qr/2026-10-17 12:00 UTC/, "$lang: end of the lift shown" );
     # Every coexistence action the agent can send is translated.
@@ -68,6 +71,14 @@ like( $html, qr{<form method="post" action="index\.cgi"}, 'confirm form posts' )
 like( $html, qr{name="csrf" value="/cpsess4815162342"}, 'csrf token in form' );
 like( $html, qr{name="confirm" value="1"}, 'confirm flag' );
 
+$html = render( run_app( params => { page => 'bans', action => 'unban', ip => '192.0.2.50' } ) );
+like( $html, qr/on this server only, until 2026-10-18 00:00 UTC at the latest/, 'confirm: this server only, until the date' );
+like( $html, qr/network ban: your organization keeps it in force on its other servers/, 'confirm: network ban kept elsewhere' );
+$html = render( run_app( params => { page => 'bans', action => 'unban', ip => '203.0.113.7' } ) );
+unlike( $html, qr/keeps it in force on its other servers/, 'confirm: local ban has no such line' );
+$html = render( run_app( params => { page => 'bans', notice => 'unban_ok', ip => '198.51.100.23', source => 'automode', until => '2026-10-16T16:00:00Z' } ) );
+like( $html, qr/lifted on this server only.*until 2026-10-16 16:00 UTC at the latest.*AutoMode ban: your organization keeps it/s, 'result: scope, date, kept elsewhere' );
+
 $html = render( run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7' } ) );
 like( $html, qr/alert-success.*The ban on 203\.0\.113\.7 has been lifted/s, 'success notice' );
 $html = render( run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7', threat_feed => 1 } ) );
@@ -91,7 +102,8 @@ unlike( $html, qr/class="row ifn-counts"/, 'no counts while stopped' );
 
 $html = render( run_app( params => { page => 'sites' }, scenario => 'restricted' ) );
 unlike( $html, qr{action=scan&amp;path=%2Fvar%2Fwww%2Fshared}, 'no scan action when not scannable' );
-like( $html, qr/Cannot be scanned/, 'not scannable shown' );
+like( $html, qr/Not owned by the account/, 'reason: not owned' );
+like( $html, qr/No document root/, 'reason: no document root' );
 like( $html, qr/Scheduled malware scanning is off/, 'scheduled scans off' );
 
 $html = render( run_app( params => { page => 'sites' } ) );

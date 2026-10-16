@@ -36,7 +36,8 @@
       [%- IF s.document_root && s.scannable %]
       <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=sites&amp;action=scan&amp;path=[% s.document_root | uri | html %]">[% L.t('action.scan') | html %]</a>
       [%- ELSE %]
-      <span class="text-muted ifn-managed" title="[% L.t('sites.not_scannable_help') | html %]">[% L.t('sites.not_scannable') | html %]</span>
+      [%- reason = !s.document_root ? 'no_docroot' : !s.account ? 'no_account' : 'not_owned' %]
+      <span class="text-muted ifn-managed" title="[% L.t('sites.not_scannable_help') | html %]">[% L.t('sites.reason.' _ reason) | html %]</span>
       [%- END %]
     </td>
   </tr>

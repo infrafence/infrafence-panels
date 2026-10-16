@@ -8,10 +8,25 @@
 | `make install-test` | `install.sh` and `uninstall.sh` on a fake `/usr/local/cpanel` tree on AlmaLinux 8, 9 and 10: checks fail cleanly without cPanel or on an old version, `--check` changes nothing, install, reinstall, repair from the installed copy, conflicts, rollback when registration fails, uninstall and uninstall again, and that no service is restarted. It also runs the installed CGI against the mock agent, with stub `Whostmgr::ACLS`, `Cpanel::Template` and `Cpanel::Locale`. |
 | `make packages` | Builds `dist/` (tar.gz, noarch RPM, `.deb`) in Docker. |
 | `make package-test` | Installs, upgrades and removes the RPM on AlmaLinux 8/9/10 and the `.deb` on Ubuntu 24.04, with and without the fake cPanel tree. |
+| `make lab-up` / `make lab-down` | Starts (or removes) long-running containers with the fake cPanel tree, the plugin installed (tarball on AlmaLinux 8/9/10, `.deb` on Ubuntu 24.04) and the mock agent, for checking things by hand. See the header of `test/lab.sh`. |
 | `make screenshots` | Renders every screen with the mock agent and saves PNGs to `docs/screenshots/` (needs Chrome or Chromium). |
 
 The fake tree and the stubs only exist inside throwaway containers. The test scripts refuse to run outside
 a container.
+
+## Scope: server-wide data, root only
+
+Every reply from the agent covers the whole server: all accounts' sites, bans, events and findings, and the
+server's allow list. The agent has no notion of resellers or account owners. In v1 the plugin is therefore
+for root (and users with the `all` privilege) only, and must never be reachable by resellers or cPanel users:
+
+- AppConfig registers it with `acls=all`, so WHM lists it only for those users.
+- The CGI checks `Whostmgr::ACLS::hasroot()` itself and answers 403 otherwise, even when the URL is opened
+  directly.
+- Nothing is installed for cPanel users (no cPanel plugin, no Jupiter/Meridian entry).
+
+Covered without cPanel by `make install-test` (a non-root ACL gets 403). On a real server, see step 2 below.
+A per-reseller view would need filtering by account in the plugin and is not part of v1.
 
 ## On a real cPanel & WHM server
 
@@ -53,7 +68,8 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
 - [ ] Open a confirmation URL with a different `/cpsess…/` token: WHM itself refuses it.
 - [ ] `chmod 0777 /usr/local/bin/infrafence-agent` and reload: the page reports the binary is not trusted. Restore `0755`.
 - [ ] Change the WHM language (top right: user menu » Change Language) to Italiano, Español, Français, Deutsch and Português: the plugin follows. Check `pt_br` also maps to Portuguese.
-- [ ] Log in as a reseller with some privileges (not "all"): the plugin is not listed, and opening `/cgi/infrafence/index.cgi` directly gives "Access denied".
+- [ ] Log in as a reseller with some privileges (not "all"): the plugin is not listed, and opening `/cgi/infrafence/index.cgi` directly gives "Access denied". Repeat as a reseller that owns accounts: still denied (the data is server-wide).
+- [ ] Log in to cPanel as an account user: there is no InfraFence entry anywhere.
 - [ ] Remove the mock (`rm -r /usr/local/bin/infrafence-agent /usr/local/bin/fixtures /usr/local/bin/scenarios`).
 
 ### 3. With the real agent
@@ -62,7 +78,7 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 
 - [ ] Overview: version, heartbeat under 3 minutes old, last sync, server ID, hosting panel "cPanel & WHM", plan. "Open in InfraFence" opens the right server on the dashboard. In the dashboard's request log, the Referer does not contain `/cpsess`.
 - [ ] Turn monitor mode on in the dashboard: Overview shows "Monitor mode" and Bans says the bans are not enforced. Turn it off again.
-- [ ] Ban a test address from another machine (e.g. failed SSH logins), find it under Bans, unban it. The message says the lift is on this server only and when it ends. The dashboard shows the `panel_unban` event with actor `root`, and the ban is still in force on the organization's other servers.
+- [ ] Ban a test address from another machine (e.g. failed SSH logins), find it under Bans, unban it. The confirmation and the result say the lift is on this server only and until which date (the ban's expiry, at most 30 days). For a network or AutoMode ban, both also say the organization keeps the ban on its other servers. The dashboard shows the `panel_unban` event with actor `root`, and the ban is still in force on the organization's other servers.
 - [ ] Allow the server's own public address: the warning says it is one of the server's own addresses. Allow `127.0.0.1`: refused (loopback).
 - [ ] Add and remove an allow-list entry, with a note containing accents (e.g. "Ufficio Città").
 - [ ] Sites: a document root outside the account's home (or not owned by it) shows "Cannot be scanned" and no Scan now button.

@@ -30,6 +30,8 @@ my @screens = (
     [ coexistence => { params => { page => 'coexistence' } } ],
     [ sites       => { params => { page => 'sites' } } ],
     [ 'confirm-unban'    => { params => { page => 'bans', action => 'unban', ip => '203.0.113.7' } } ],
+    [ 'confirm-unban-network' => { params => { page => 'bans', action => 'unban', ip => '192.0.2.50' } } ],
+    [ 'notice-unban-automode' => { params => { page => 'bans', notice => 'unban_ok', ip => '198.51.100.23', until => '2026-10-16T16:00:00Z', source => 'automode' } } ],
     [ 'confirm-allow'    => { params => { page => 'allowlist', action => 'allow', ip => '192.0.2.44', note => 'Office VPN' } } ],
     [ 'confirm-disallow' => { params => { page => 'allowlist', action => 'disallow', ip => '198.51.100.4' } } ],
     [ 'confirm-scan'     => { params => { page => 'sites', action => 'scan', path => '/home/alice/public_html' } } ],

@@ -40,6 +40,10 @@ my @BAN_LIMITS     = qw(500 100 250);
 my @FINDING_LIMITS = qw(200 500);
 my @EVENT_LIMITS   = qw(100 50 250 500);
 my @FINDING_KINDS  = qw(all malware integrity);
+my @BAN_SOURCES    = qw(local network automode manual);
+
+# The agent lifts a ban on this server until the ban expires, at most 30 days.
+use constant MAX_LIFT => 30 * 86400;
 
 # Product names, not translated.
 my %PANEL_NAMES = (
@@ -202,7 +206,10 @@ sub _action {
     $data->{act} = \%act;
 
     my $confirmed = defined $p->{confirm} && $p->{confirm} eq '1';
-    return $self->_view( 'confirm', $data ) unless $confirmed && $self->_is_post;
+    unless ( $confirmed && $self->_is_post ) {
+        $self->_describe_ban( \%act ) if $name eq 'unban';
+        return $self->_view( 'confirm', $data );
+    }
 
     unless ( $self->_csrf_ok ) {
         _error( $data, 'csrf' );
@@ -243,11 +250,29 @@ sub _notice_query {
     }
     push @q, 'until=' . uri_escape( $r->{lifted_until} ) if _iso( $r->{lifted_until} );
     push @q, 'own=1'        if $r->{own_address};
+    push @q, "source=$r->{source}" if defined valid_choice( $r->{source}, [@BAN_SOURCES], undef );
     push @q, 'unreported=1' if exists $r->{reported} && !$r->{reported};
     push @q, 'threat_feed=1' if $r->{threat_feed};
     push @q, 'pending=1'     if $r->{firewall_pending};
     push @q, 'banned=1'      if $r->{banned};
     return join '&', @q;
+}
+
+# For the confirmation page: the ban's source and when the lift will end, by
+# the agent's rule (the ban's expiry, or 30 days from now, whichever is first).
+sub _describe_ban {
+    my ( $self, $act ) = @_;
+    my $reply = $self->{agent}->call( 'bans', '--limit', '500' );
+    return unless $reply->{ok};
+    my ($ban) = grep { ref $_ eq 'HASH' && defined $_->{ip} && ( valid_ip( $_->{ip} ) || '' ) eq $act->{ip} } @{ $reply->{bans} || [] };
+    return unless $ban;
+    $act->{source} = valid_choice( $ban->{source}, [@BAN_SOURCES], undef );
+    my $L       = $self->{i18n};
+    my $cap     = $L->_now + MAX_LIFT;
+    my $expires = $L->epoch( $ban->{expires} );
+    my $until   = defined $expires && $expires < $cap ? $expires : $cap;
+    my @g       = gmtime $until;
+    $act->{until} = sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ', $g[5] + 1900, $g[4] + 1, @g[ 3, 2, 1, 0 ];
 }
 
 sub _iso {
@@ -294,6 +319,8 @@ sub _notice {
         $n{ip} = valid_ip( $p->{ip} );
         return unless defined $n{ip};
     }
+    $n{source} = valid_choice( $p->{source}, [@BAN_SOURCES], undef );
+    delete $n{source} unless defined $n{source};
     for (qw(unreported threat_feed pending banned own)) {
         $n{$_} = 1 if defined $p->{$_} && $p->{$_} eq '1';
     }

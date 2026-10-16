@@ -5,7 +5,7 @@ This file and the agent's code are checked against each other: the examples are 
 `TestPanelJSONReference` (`cmd/infrafence-agent/panel_json_test.go`) starts the real panel socket over a
 known agent state (a cPanel server with bans of every source, an allow list, events, findings and two
 accounts), runs the CLI as its own process for every command and fills in the examples below. The same
-outputs are in [`testdata/panel/`](../testdata/panel), byte for byte as printed (one line, then a newline);
+outputs are in [`testdata/panel/`](https://github.com/infrafence/infrafence-agent/tree/main/testdata/panel), byte for byte as printed (one line, then a newline);
 here they are only indented. The test fails if the CLI no longer prints them, if a field is missing from
 the tables below, or if a field marked "always" is missing from an output. After a change to the output:
 `go test ./cmd/infrafence-agent -run TestPanelJSONReference -update-panel-json`.
