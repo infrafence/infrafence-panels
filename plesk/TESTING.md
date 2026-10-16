@@ -144,14 +144,30 @@ roots). Switches, as root:
 
 - [ ] As root: `sh dev/test-wrapper.sh` → "all checks passed".
 - [ ] On the build machine: `python3 dev/check-mock.py` → "all checks passed" (build.sh runs it too).
-- [ ] Symlink escape: `ln -s /etc /var/www/vhosts/<domain>/evil` then
-      `infrafence-panel scan /var/www/vhosts/<domain>/evil --actor admin` → `not_a_document_root`; remove the link.
+- [ ] As a non-root user: `runuser -u nobody -- /usr/local/psa/admin/sbin/modules/infrafence/infrafence-panel status`
+      → `not_root` (test-wrapper.sh does this too).
+- [ ] Directory chain: `chmod o+w /usr/local/share` (with the mock, whose binary is below it) → every screen says
+      the agent is not trusted; `chmod 755 /usr/local/share` again.
+- [ ] Symlinked document roots, in a domain's directory: `ln -s httpdocs linkroot`, `ln -s logs linklogs`,
+      `ln -s /etc linketc`. `infrafence-panel scan <dir>/linkroot --actor admin` and `…/linklogs` →
+      `not_scannable`; `…/linketc` → `not_a_document_root`; `…/httpdocs` → the scan starts, and the agent gets
+      the resolved path. To try it from the UI, add the links as sites in the mock's installed `sites.json`.
+      Remove the links afterwards.
 - [ ] Log in as a customer (and as a reseller if the licence allows one): `/modules/infrafence/index.php/index/index`
-      and `/modules/infrafence/index.php/api/status` return no agent data, and the extension is not in their
+      gives no page, `/modules/infrafence/api.php?action=status` answers 403, and the extension is not in their
       navigation or on their Home page. The data is server-wide, so this must hold for every non-admin user.
-- [ ] In the browser console, a `fetch` POST to `…/api/unban` without the `X-Forgery-Protection-Token`
-      header is rejected by Plesk ("Forgery protection token check failed" in panel.log).
-- [ ] GET `…/api/unban?ip=…` → 405.
+- [ ] CSRF, from the administrator's browser console on the extension page, for each of `unban`, `allow`,
+      `disallow`, `scan`: `fetch('api.php?action=unban', {method: 'POST', headers: {'Content-Type':
+      'application/json'}, body: '{"ip":"203.0.113.7"}'})` → 403; the same with
+      `'X-Forgery-Protection-Token': 'wrong'` → 403; with the page's token
+      (`document.getElementById('forgery_protection_token').content`) → 200 and the change is made.
+- [ ] Without a session (another browser): `api.php?action=status` → 400.
+- [ ] `GET api.php?action=unban` → 405; `POST api.php?action=bans` → 405; every reply has
+      `X-Content-Type-Options: nosniff`.
+- [ ] A stale token in the page (change the meta tag's content, then Unban) → "Your session expired", and the ban
+      stays.
+- [ ] Deadline: `echo 20 > /etc/infrafence-mock/delay`, then Unban → the request ends after about 50 seconds with
+      "did not answer in time" (the third agent call gets only the time left); `echo 0` to undo.
 
 ### Look
 

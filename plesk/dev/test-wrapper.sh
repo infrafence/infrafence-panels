@@ -56,5 +56,18 @@ expect invalid_path         scan '/var/www/vhosts/a b' --actor admin
 expect not_a_document_root  scan /etc --actor admin
 expect not_a_document_root  scan /var/www/vhosts --actor admin
 expect not_a_document_root  scan /var/www/vhosts/no-such-domain.example --actor admin
+expect bad_request          --timeout 0 status
+expect bad_request          --timeout 26 status
+expect bad_request          --timeout x status
+expect unknown_command      --timeout
+
+# Run directly by anyone but root (here: nobody), the wrapper refuses before doing anything.
+if command -v runuser >/dev/null 2>&1 && id nobody >/dev/null 2>&1; then
+    out=$(runuser -u nobody -- "$W" status 2>&1)
+    case "$out" in
+        *'"error":"not_root"'*) printf 'ok    %-20s %s\n' not_root "status (as nobody)" ;;
+        *) printf 'FAIL  %-20s %s\n      got: %s\n' not_root "status (as nobody)" "$out"; fails=$((fails + 1)) ;;
+    esac
+fi
 
 [ "$fails" -eq 0 ] && echo "all checks passed" || { echo "$fails check(s) failed"; exit 1; }

@@ -9,9 +9,11 @@
 set -eu
 
 cd "$(dirname "$0")"
-NODE_IMAGE=${NODE_IMAGE:-node:20-bookworm}
+# Build images pinned by digest (multi-arch index), so a build always uses the same toolchain.
+# To update: docker buildx imagetools inspect node:20-bookworm (and php:8.3-cli), take the Digest.
+NODE_IMAGE=${NODE_IMAGE:-node:20-bookworm@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5}
 
-PHP_IMAGE=${PHP_IMAGE:-php:8.3-cli}
+PHP_IMAGE=${PHP_IMAGE:-php:8.3-cli@sha256:aafe21201943a8a6e497ddfb471e2ce68ada76adede38c7d61fede8918b24319}
 
 check_php() {
     for f in $(find src/plib src/htdocs -name '*.php' -o -name '*.phtml'); do
@@ -68,6 +70,7 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             path = os.path.join(root, name)
             arc = os.path.relpath(path, src)
             info = zipfile.ZipInfo(arc, date_time=(2026, 1, 1, 0, 0, 0))
+            # Plesk installs sbin files as 0755 root:root whatever the zip says; see sbin/infrafence-panel.
             mode = 0o755 if arc.startswith("sbin/") else 0o644
             info.external_attr = (0o100000 | mode) << 16
             info.compress_type = zipfile.ZIP_DEFLATED

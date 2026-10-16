@@ -301,6 +301,10 @@ def main(argv):
         site = next((s for s in fixture("sites")["sites"] if s.get("document_root") == target), None)
         if site is None:
             raise Fail("not_a_document_root", target + " is not the document root of any site", True)
+        # Like the agent: symlinks are never followed, so a document root that is (or goes through) a
+        # symlink is not scanned.
+        if os.path.exists(target) and os.path.realpath(target) != target:
+            raise Fail("not_scannable", target + " is a symlink or goes through one", True)
         if not site.get("scannable"):
             raise Fail("not_scannable", target + " does not belong to the site's account", True)
         started = parse_time(state.get("scan_started") or "")
