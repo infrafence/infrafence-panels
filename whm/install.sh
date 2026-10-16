@@ -142,7 +142,8 @@ preflight() {
 # ------------------------------------------------------------------ files
 
 # Builds DIR in a temporary sibling and swaps it in, so a page is never served
-# from a half-copied directory.
+# from a half-copied directory. Only files are swapped: no service is
+# restarted (cpsrvd picks up the new CGI and templates on the next request).
 put_dir() {
     target=$1; shift
     parent=$(dirname "$target")
@@ -185,9 +186,13 @@ fill_share() {
     install -m 0755 "$SRC/uninstall.sh" "$1/uninstall.sh"
     install -m 0644 "$SRC/VERSION" "$1/VERSION"
     # A copy of the payload, so `install.sh` in $SHARE can repair the install.
+    # As root, tar would keep the source's modes and owners (a checkout or
+    # tarball made with umask 002 has group-writable files), so take neither
+    # and normalise: only root may write anything that cpsrvd runs as root.
     if [ "$P" != "$1/payload" ]; then
-        (cd "$P" && tar cf - .) | (cd "$1/payload" && tar xf -)
+        (cd "$P" && tar cf - .) | (cd "$1/payload" && tar xf - --no-same-permissions --no-same-owner)
     fi
+    chmod -R go-w,u+rwX "$1/payload"
 }
 
 install_files() {

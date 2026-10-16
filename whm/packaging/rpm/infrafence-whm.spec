@@ -28,6 +28,8 @@ credentials and never changes the firewall or ModSecurity by itself.
 
 %install
 sh ./install.sh --files-only --destdir %{buildroot}
+# Only root may write what cpsrvd runs as root, whatever the build's umask.
+chmod -R u+rwX,go-w %{buildroot}
 
 %post
 # Register with WHM. No service is restarted.
@@ -44,6 +46,7 @@ if [ "$1" -eq 0 ]; then
 fi
 
 %files
+%defattr(-,root,root,-)
 %license LICENSE
 %doc README.md
 /usr/local/cpanel/whostmgr/docroot/cgi/infrafence

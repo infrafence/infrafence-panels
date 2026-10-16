@@ -3,7 +3,7 @@ RELEASE ?= 9
 IMAGE   := infrafence-whm-test:alma$(RELEASE)
 SHOTS   ?= docs/screenshots
 
-.PHONY: image test install-test packages package-test screenshots lab-up lab-down all
+.PHONY: image test install-test packages package-test umask-test screenshots lab-up lab-down all
 
 image:
 	docker build -q --build-arg BASE=almalinux:$(RELEASE) -t $(IMAGE) -f dev/Dockerfile.test dev >/dev/null
@@ -22,6 +22,10 @@ packages:
 package-test: packages
 	sh test/package-test.sh
 
+# A build from group/world-writable files with umask 002 installs nothing writable by others.
+umask-test:
+	sh test/umask-test.sh
+
 screenshots:
 	tmp=$$(mktemp -d) && sh dev/screenshots.sh "$$tmp" en && cp "$$tmp"/png/*.png $(SHOTS)/ && rm -rf "$$tmp"
 
@@ -32,4 +36,4 @@ lab-up:
 lab-down:
 	sh test/lab.sh down
 
-all: test install-test package-test
+all: test install-test package-test umask-test
