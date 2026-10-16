@@ -1,5 +1,11 @@
 # Testing the Plesk extension
 
+Everything the agent returns is **server-wide**: every account's sites, bans, events and findings, and
+the server's allow list (docs/panel-json.md, "Who may see it"). The agent has no notion of resellers or
+customers, so v1 is for the Plesk administrator only: every controller is admin-only, the buttons and the
+Home block exist only in administrator places, and the root wrapper can be run only by Plesk through
+`callSbin`. The Security checklist below checks that a customer gets nothing.
+
 Two ways: a disposable Docker container (quick, what development used), and a real VM (needed before a
 release). Never install the mock agent on a production or customer server.
 
@@ -67,6 +73,8 @@ The mock answers with the agent's reference outputs (`dev/fixtures/`, a cPanel s
 roots). Switches, as root:
 
 - `echo running|stopped|disconnected|monitor|suspended > /etc/infrafence-mock/mode`
+- `echo "192.0.2.10" > /etc/infrafence-mock/own` makes those addresses the server's own (allow answers
+  `already` with `own_address: true`).
 - `echo 30 > /etc/infrafence-mock/delay` makes it slower than the wrapper's 25 s timeout; `echo 0` to undo.
 - State (unbans, allow-list changes, the running scan) is in `/var/lib/infrafence-mock/state.json`; write
   `{"unbanned":[],"allowed":[],"disallowed":[],"scan_started":null,"events":[]}` into it to start again.
@@ -99,17 +107,22 @@ roots). Switches, as root:
 
 ### Actions (every one asks for confirmation first)
 
-- [ ] Unban `203.0.113.7` → toast "lifted on this server only, until …"; the row disappears; Events shows
-      "Address unbanned from the panel".
-- [ ] Unban `198.51.100.9` with "Also add it to the allow list" and a note → the toast adds that the ban stays
-      in force in the dashboard and on the other servers; the address is in Allow list with the note, added by
-      `admin`.
+- [ ] Unban `203.0.113.7` (this server's own detection): the dialog says "lifted on this server only, until
+      <date> at the latest" (its expiry); the toast repeats the agent's `lifted_until`; the row disappears;
+      Events shows "Address unbanned from the panel".
+- [ ] Unban `198.51.100.23` (AutoMode) and `192.0.2.50` (network): dialog and toast also say that the
+      organization keeps the ban on its other servers.
+- [ ] Unban `198.51.100.9` (dashboard, permanent) with "Also add it to the allow list" and a note: the date is
+      30 days from now, the dialog says the ban stays in the dashboard; the address is in Allow list with the
+      note, added by `admin`.
+- [ ] Add one of the addresses in `/etc/infrafence-mock/own` → warning that it is this server's own address.
 - [ ] Add `10.0.0.0/8` → the confirm button stays disabled; `0.0.0.0` and `127.0.0.1` → inline errors;
       `203.0.113.20` → "already allowed"; `203.0.113.55` → added.
 - [ ] Remove `198.51.100.4` → removed. Dashboard entries have no Remove.
 - [ ] Domains › Scan now on a site under `/var/www/vhosts` (see above) → "scan has started"; at once again →
       "already running"; on a `/home/...` fixture site → "not the document root of any site" (refused by the
-      wrapper: Plesk document roots are under the vhosts directory); a `scannable: false` site has no button.
+      wrapper: Plesk document roots are under the vhosts directory); a `scannable: false` site has no button but the short reason "Not owned by the site's account" (details on
+      hover).
 - [ ] Tools & Settings › Action Log shows `ext_infrafence_*` entries for the actions above.
 
 ### Agent states
@@ -133,8 +146,9 @@ roots). Switches, as root:
 - [ ] On the build machine: `python3 dev/check-mock.py` → "all checks passed" (build.sh runs it too).
 - [ ] Symlink escape: `ln -s /etc /var/www/vhosts/<domain>/evil` then
       `infrafence-panel scan /var/www/vhosts/<domain>/evil --actor admin` → `not_a_document_root`; remove the link.
-- [ ] Log in as a customer: `/modules/infrafence/index.php/api/status` returns no agent data and the
-      extension is not in the customer's navigation.
+- [ ] Log in as a customer (and as a reseller if the licence allows one): `/modules/infrafence/index.php/index/index`
+      and `/modules/infrafence/index.php/api/status` return no agent data, and the extension is not in their
+      navigation or on their Home page. The data is server-wide, so this must hold for every non-admin user.
 - [ ] In the browser console, a `fetch` POST to `…/api/unban` without the `X-Forgery-Protection-Token`
       header is rejected by Plesk ("Forgery protection token check failed" in panel.log).
 - [ ] GET `…/api/unban?ip=…` → 405.

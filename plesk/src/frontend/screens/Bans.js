@@ -32,13 +32,36 @@ const matches = (ban, query) => {
     return [ban.ip, ban.reason, code('source', ban.source)].some(v => String(v || '').toLowerCase().includes(q));
 };
 
+const LIFT_MAX_DAYS = 30;
+
+/**
+ * When a lift ends at the latest, as the agent computes it: the ban's expiry, and never more
+ * than 30 days from now. Shown before confirming; the reply then gives the exact `lifted_until`.
+ */
+const expectedLiftEnd = ban => {
+    const max = Date.now() + LIFT_MAX_DAYS * 86400000;
+    const expires = ban.expires ? new Date(ban.expires).getTime() : NaN;
+    return new Date(Number.isNaN(expires) ? max : Math.min(expires, max)).toISOString();
+};
+
+/**
+ * The lift is local to this server. Network and AutoMode bans stay on the organization's other
+ * servers; dashboard bans stay in the dashboard.
+ */
+const sourceNote = source => {
+    if (source === 'network' || source === 'automode') {
+        return t('bans.keptElsewhere');
+    }
+    return source === 'manual' ? t('bans.keptInDashboard') : '';
+};
+
 /**
  * What the unban reply adds to the success message: lifted on this server only and until when,
- * not reported yet, still on a threat list, firewall entry still pending.
+ * where the ban stays, not reported yet, still on a threat list, firewall entry still pending.
  */
 export const unbanNotes = reply => [
     reply.lifted_until ? t('bans.liftedUntil', { date: dateTime(reply.lifted_until) }) : '',
-    reply.source && reply.source !== 'local' ? t('bans.stillElsewhere') : '',
+    sourceNote(reply.source),
     reply.reported === false ? t('result.notReported') : '',
     reply.threat_feed ? t('bans.threatFeed') : '',
     reply.firewall_pending ? t('bans.firewallPending') : '',
@@ -156,7 +179,15 @@ const Bans = ({ status }) => {
                 onConfirm={confirm}
                 onClose={() => setPending(null)}
             >
-                <Paragraph>{alsoAllow ? t('bans.confirmAllowText') : t('bans.confirmText')}</Paragraph>
+                {pending ? (
+                    <Paragraph>
+                        {sentences(
+                            t('bans.confirmLift', { date: dateTime(expectedLiftEnd(pending)) }),
+                            sourceNote(pending.source),
+                            alsoAllow ? t('bans.confirmAllow') : t('bans.confirmAgain'),
+                        )}
+                    </Paragraph>
+                ) : null}
                 <Checkbox checked={alsoAllow} onChange={setAlsoAllow}>{t('bans.alsoAllow')}</Checkbox>
                 {alsoAllow ? (
                     <FormFieldText

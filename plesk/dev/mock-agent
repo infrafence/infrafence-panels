@@ -13,6 +13,7 @@ Switches (files, because the Plesk wrapper clears the environment):
                                or "suspended" (plan server limit exceeded)
                                ($INFRAFENCE_MOCK_MODE wins when set, for dev/check-mock.py)
   /etc/infrafence-mock/delay   seconds to wait before answering (to test timeouts)
+  /etc/infrafence-mock/own     the server's own addresses, separated by spaces (for allow's own_address)
 To test "Scan now" with real Plesk document roots, add sites to the installed fixtures/sites.json.
 """
 
@@ -273,8 +274,10 @@ def main(argv):
     if command == "allow":
         if ipaddress.ip_address(target).is_loopback:
             raise Fail("loopback_address", target + " is a loopback address; it is never banned", True)
-        if any(e["address"] == target for e in allowlist(state)):
-            reply({"agent_running": True, "already": True, "ip": target, "ok": True, "own_address": False})
+        # The server's own addresses are never banned: allowed already, and flagged.
+        own = target in switch("own", "").split()
+        if own or any(e["address"] == target for e in allowlist(state)):
+            reply({"agent_running": True, "already": True, "ip": target, "ok": True, "own_address": own})
         state["disallowed"] = [d for d in state["disallowed"] if d != target]
         state["allowed"].insert(0, {"actor": actor, "added": iso(now()), "address": target,
                                     "note": options.get("--note") or None, "source": "panel"})

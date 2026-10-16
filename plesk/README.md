@@ -34,7 +34,8 @@ browser ──(Plesk session, admin only, CSRF token)──▶ plib/controllers/
                                    infrafence-agent panel <command> [args] --json      (docs/panel-json.md)
 ```
 
-- **Administrator only.** Every controller has `$_accessLevel = 'admin'` and checks the session again;
+- **Administrator only.** The agent's data is server-wide (all accounts' sites, bans, events and findings),
+  so v1 never shows it to resellers or customers. Every controller has `$_accessLevel = 'admin'` and checks the session again;
   hooks only use administrator places. Customers and resellers are turned away by Plesk.
 - **Changes are POST only**, sent with Plesk's forgery protection token (Plesk rejects a POST without
   a valid token before the extension runs) and confirmed by the user in a dialog.
