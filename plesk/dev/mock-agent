@@ -1,0 +1,326 @@
+#!/usr/bin/env python3
+"""Mock of `infrafence-agent panel <command> ... --json` for panel development.
+
+Replies are built from the agent's own reference outputs in ./fixtures (copies of the agent repository's
+testdata/panel/*.json, documented in docs/panel-json.md), with the same fields, error codes and exit
+status. Timestamps are shifted so that they stay relative to now. Changes (unban, allow, disallow, scan)
+are kept in a small state file, so the panel shows their effect.
+
+Development only. Never install this on a production server.
+
+Switches (files, because the Plesk wrapper clears the environment):
+  /etc/infrafence-mock/mode    "running" (default), "stopped", "disconnected", "monitor" (monitor_mode)
+                               or "suspended" (plan server limit exceeded)
+                               ($INFRAFENCE_MOCK_MODE wins when set, for dev/check-mock.py)
+  /etc/infrafence-mock/delay   seconds to wait before answering (to test timeouts)
+  /etc/infrafence-mock/own     the server's own addresses, separated by spaces (for allow's own_address)
+To test "Scan now" with real Plesk document roots, add sites to the installed fixtures/sites.json.
+"""
+
+import ipaddress
+import json
+import os
+import re
+import sys
+import time
+from datetime import datetime, timedelta, timezone
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+FIXTURES = os.environ.get("INFRAFENCE_MOCK_FIXTURES") or os.path.join(HERE, "fixtures")
+STATE_FILE = os.environ.get("INFRAFENCE_MOCK_STATE", "/var/lib/infrafence-mock/state.json")
+SWITCHES = "/etc/infrafence-mock"
+ANCHOR = datetime(2026, 10, 16, 12, 0, 0, tzinfo=timezone.utc)
+
+COMMANDS = {
+    # command: (options with a value, number of positional arguments, needs --actor)
+    "status": (set(), 0, False),
+    "bans": ({"--limit"}, 0, False),
+    "unban": ({"--actor"}, 1, True),
+    "allow": ({"--actor", "--note"}, 1, True),
+    "allowlist": (set(), 0, False),
+    "disallow": ({"--actor"}, 1, True),
+    "findings": ({"--limit"}, 0, False),
+    "events": ({"--limit", "--since"}, 0, False),
+    "coexistence": (set(), 0, False),
+    "sites": (set(), 0, False),
+    "scan": ({"--actor"}, 1, True),
+}
+ACTOR = re.compile(r"^[A-Za-z0-9._@+-]{1,64}$")
+
+
+class Fail(Exception):
+    """An error reply. agent_running is None when the arguments were refused before asking the agent."""
+
+    def __init__(self, code, message, agent_running=None):
+        super().__init__(message)
+        self.code, self.message, self.agent_running = code, message, agent_running
+
+
+def reply(obj, exit_code=0):
+    sys.stdout.write(json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
+    sys.exit(exit_code)
+
+
+def switch(name, default):
+    try:
+        with open(os.path.join(SWITCHES, name)) as f:
+            return f.read().strip() or default
+    except OSError:
+        return default
+
+
+def iso(t):
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def now():
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def parse_time(value):
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+
+
+def shift_times(value, delta):
+    if isinstance(value, dict):
+        return {k: shift_times(v, delta) for k, v in value.items()}
+    if isinstance(value, list):
+        return [shift_times(v, delta) for v in value]
+    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", value):
+        return iso(parse_time(value) + delta)
+    return value
+
+
+def fixture(name):
+    with open(os.path.join(FIXTURES, name + ".json")) as f:
+        data = json.load(f)
+    return shift_times(data, now() - ANCHOR)
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"unbanned": [], "allowed": [], "disallowed": [], "scan_started": None, "events": []}
+
+
+def save_state(state):
+    os.makedirs(os.path.dirname(STATE_FILE), mode=0o700, exist_ok=True)
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp, STATE_FILE)
+
+
+def since_cutoff(value):
+    m = re.match(r"^(\d+)([smhd])$", value)
+    if m:
+        seconds = int(m.group(1)) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
+        return now() - timedelta(seconds=seconds) if seconds <= 90 * 86400 else None
+    t = parse_time(value)
+    return t if t and t.tzinfo and now() - t <= timedelta(days=90) else None
+
+
+def parse(argv):
+    if len(argv) < 2 or argv[0] != "panel":
+        raise Fail("bad_request", "usage: infrafence-agent panel <command> [args] --json")
+    command, rest = argv[1], argv[2:]
+    if command not in COMMANDS:
+        raise Fail("unknown_command", "unknown panel command " + json.dumps(command))
+    with_value, positional_count, needs_actor = COMMANDS[command]
+    positional, options, i = [], {}, 0
+    while i < len(rest):
+        arg = rest[i]
+        if arg == "--json":
+            pass
+        elif arg in with_value:
+            if i + 1 >= len(rest):
+                raise Fail("bad_request", arg + " needs a value")
+            options[arg] = rest[i + 1]
+            i += 1
+        elif arg.startswith("--"):
+            raise Fail("bad_request", "unknown option " + arg)
+        else:
+            positional.append(arg)
+        i += 1
+    if len(positional) != positional_count:
+        raise Fail("bad_request", "wrong number of arguments")
+    if needs_actor and not ACTOR.match(options.get("--actor", "")):
+        raise Fail("invalid_actor", "--actor must be 1-64 of A-Z a-z 0-9 . _ @ - +")
+    if "--limit" in options and not (options["--limit"].isdigit() and 1 <= int(options["--limit"]) <= 500):
+        raise Fail("bad_request", "--limit must be 1-500")
+    if "--note" in options:
+        note = options["--note"]
+        if len(note.encode()) > 200 or any(ord(c) < 32 or ord(c) == 127 for c in note):
+            raise Fail("bad_request", "--note must be up to 200 bytes of printable text")
+    if "--since" in options and since_cutoff(options["--since"]) is None:
+        raise Fail("bad_request", "--since must be an RFC 3339 time or a duration such as 24h, at most 90 days")
+    return command, positional, options
+
+
+def single_ip(value):
+    """Canonical address, as the agent accepts it: one address, no range, port or zone."""
+    try:
+        ip = ipaddress.ip_address(value)
+    except ValueError:
+        raise Fail("invalid_ip", "not a single IPv4 or IPv6 address")
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    if ip.is_unspecified or ip.is_multicast or str(ip) == "255.255.255.255":
+        raise Fail("invalid_ip", "not a single IPv4 or IPv6 address")
+    return str(ip)
+
+
+def active_bans(state):
+    return [b for b in fixture("bans")["bans"] if b["ip"] not in state["unbanned"]]
+
+
+def allowlist(state):
+    entries = [e for e in state["allowed"] if e["address"] not in state["disallowed"]]
+    entries += [e for e in fixture("allowlist")["allowlist"] if e["address"] not in state["disallowed"]]
+    return entries
+
+
+def limit(items, options):
+    return items[:int(options.get("--limit", 50))]
+
+
+def record(state, event_type, ip=None):
+    state["events"].append({"severity": "info", "source": "panel", "source_ip": ip, "time": iso(now()), "type": event_type})
+
+
+def main(argv):
+    command, positional, options = parse(argv)
+    delay = switch("delay", "0")
+    if re.match(r"^\d+(\.\d+)?$", delay):
+        time.sleep(min(float(delay), 60))
+    mode = os.environ.get("INFRAFENCE_MOCK_MODE") or switch("mode", "running")
+    running = mode != "stopped"
+    state = load_state()
+
+    if command == "status":
+        if not running:
+            reply(fixture("status_agent_not_running"))
+        data = fixture("status")
+        data["last_sync"] = iso(now() - timedelta(seconds=30))
+        if mode == "disconnected":
+            data["connected"] = False
+            data["last_heartbeat"] = iso(now() - timedelta(minutes=12))
+        else:
+            data["last_heartbeat"] = iso(now() - timedelta(seconds=40))
+        data["monitor_mode"] = mode == "monitor"
+        data["suspended"] = mode == "suspended"
+        reply(data)
+
+    if command == "coexistence":
+        data = fixture("coexistence")
+        data["agent_running"] = running
+        reply(data)
+
+    if command == "sites":
+        data = fixture("sites")
+        data["agent_running"] = running
+        if not running:
+            data["malware_scan_enabled"] = None
+        reply(data)
+
+    # Arguments are refused before asking the agent, as the real CLI does.
+    if command == "scan":
+        path = positional[0]
+        if not path.startswith("/") or os.path.normpath(path) != path or "\x00" in path:
+            raise Fail("invalid_path", "not a clean absolute path")
+    if command in ("unban", "allow", "disallow"):
+        positional[0] = single_ip(positional[0])
+
+    if not running:
+        reply(fixture("error_agent_not_running"), 1)
+
+    if command == "bans":
+        bans = active_bans(state)
+        reply({"agent_running": True, "bans": limit(bans, options), "monitor_mode": mode == "monitor", "ok": True, "total": len(bans)})
+
+    if command == "allowlist":
+        reply({"agent_running": True, "allowlist": allowlist(state), "ok": True})
+
+    if command == "findings":
+        data = fixture("findings")
+        reply({"agent_running": True, "findings": limit(data["findings"], options), "ok": True, "total": len(data["findings"])})
+
+    if command == "events":
+        events = state["events"][::-1] + fixture("events")["events"]
+        if "--since" in options:
+            cutoff = since_cutoff(options["--since"])
+            events = [e for e in events if parse_time(e["time"]) >= cutoff]
+        reply({"agent_running": True, "events": limit(events, options), "ok": True})
+
+    target, actor = positional[0], options["--actor"]
+
+    if command == "unban":
+        ban = next((b for b in active_bans(state) if b["ip"] == target), None)
+        if ban is None:
+            raise Fail("not_banned", target + " is not banned by InfraFence on this server", True)
+        state["unbanned"].append(target)
+        record(state, "panel_unban", target)
+        save_state(state)
+        # Lifted on this server only, until the ban ends or for at most 30 days.
+        lifted_until = ban["expires"] or iso(now() + timedelta(days=30))
+        reply({"agent_running": True, "ip": target, "lifted_until": lifted_until, "ok": True, "reported": True,
+               "scope": "server", "source": ban["source"], "threat_feed": False})
+
+    if command == "allow":
+        if ipaddress.ip_address(target).is_loopback:
+            raise Fail("loopback_address", target + " is a loopback address; it is never banned", True)
+        # The server's own addresses are never banned: allowed already, and flagged.
+        own = target in switch("own", "").split()
+        if own or any(e["address"] == target for e in allowlist(state)):
+            reply({"agent_running": True, "already": True, "ip": target, "ok": True, "own_address": own})
+        state["disallowed"] = [d for d in state["disallowed"] if d != target]
+        state["allowed"].insert(0, {"actor": actor, "added": iso(now()), "address": target,
+                                    "note": options.get("--note") or None, "source": "panel"})
+        record(state, "panel_allow", target)
+        save_state(state)
+        banned = any(b["ip"] == target for b in active_bans(state))
+        reply({"agent_running": True, "banned": banned, "ip": target, "ok": True, "own_address": False, "reported": True})
+
+    if command == "disallow":
+        entry = next((e for e in allowlist(state) if e["address"] == target), None)
+        if entry is None:
+            raise Fail("not_in_allowlist", target + " is not on the allow list", True)
+        if entry["source"] == "dashboard":
+            raise Fail("managed_by_dashboard", target + " is on the organization's allow list: remove it in the dashboard", True)
+        state["disallowed"].append(target)
+        record(state, "panel_disallow", target)
+        save_state(state)
+        reply({"agent_running": True, "ip": target, "ok": True, "reported": True})
+
+    if command == "scan":
+        site = next((s for s in fixture("sites")["sites"] if s.get("document_root") == target), None)
+        if site is None:
+            raise Fail("not_a_document_root", target + " is not the document root of any site", True)
+        # Like the agent: symlinks are never followed, so a document root that is (or goes through) a
+        # symlink is not scanned.
+        if os.path.exists(target) and os.path.realpath(target) != target:
+            raise Fail("not_scannable", target + " is a symlink or goes through one", True)
+        if not site.get("scannable"):
+            raise Fail("not_scannable", target + " does not belong to the site's account", True)
+        started = parse_time(state.get("scan_started") or "")
+        if started and now() - started < timedelta(seconds=60):
+            raise Fail("scan_running", "a malware scan is already running", True)
+        state["scan_started"] = iso(now())
+        record(state, "panel_scan")
+        save_state(state)
+        reply({"agent_running": True, "ok": True, "path": target, "queued": True, "reported": True})
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv[1:])
+    except Fail as e:
+        out = {"error": e.code, "message": e.message, "ok": False}
+        if e.agent_running is not None:
+            out["agent_running"] = e.agent_running
+        reply(out, 1)

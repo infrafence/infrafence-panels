@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module>
+    <id>infrafence</id>
+    <name>InfraFence</name>
+    <description>The InfraFence agent on this server, inside Plesk: protection status, bans and the allow list, malware and file integrity findings, recent events, the other security tools it works alongside, and scan coverage of your domains.</description>
+    <description xml:lang="it-IT">L'agente InfraFence di questo server, dentro Plesk: stato della protezione, ban e lista consentiti, rilevamenti malware e di integrità dei file, eventi recenti, gli altri strumenti di sicurezza con cui convive e la copertura delle scansioni dei domini.</description>
+    <description xml:lang="es-ES">El agente de InfraFence de este servidor, dentro de Plesk: estado de la protección, bloqueos y lista de permitidos, detecciones de malware y de integridad de archivos, eventos recientes, las demás herramientas de seguridad con las que convive y la cobertura de análisis de sus dominios.</description>
+    <description xml:lang="fr-FR">L'agent InfraFence de ce serveur, dans Plesk : état de la protection, bannissements et liste autorisée, détections de malware et d'intégrité des fichiers, événements récents, les autres outils de sécurité avec lesquels il cohabite et la couverture d'analyse de vos domaines.</description>
+    <description xml:lang="de-DE">Der InfraFence-Agent dieses Servers in Plesk: Schutzstatus, Sperren und Zulassungsliste, Malware- und Dateiintegritätsfunde, aktuelle Ereignisse, die anderen Sicherheitstools, mit denen er zusammenarbeitet, und die Scan-Abdeckung Ihrer Domains.</description>
+    <description xml:lang="pt-PT">O agente InfraFence deste servidor, dentro do Plesk: estado da proteção, bloqueios e lista de permitidos, deteções de malware e de integridade de ficheiros, eventos recentes, as outras ferramentas de segurança com que convive e a cobertura de análise dos seus domínios.</description>
+    <description xml:lang="pt-BR">O agente InfraFence deste servidor, dentro do Plesk: status da proteção, bloqueios e lista de permitidos, detecções de malware e de integridade de arquivos, eventos recentes, as outras ferramentas de segurança com que convive e a cobertura de varredura dos seus domínios.</description>
+    <category>security</category>
+    <version>1.0.0</version>
+    <release>1</release>
+    <vendor>InfraFence</vendor>
+    <url>https://infrafence.com</url>
+    <plesk_min_version>18.0.60</plesk_min_version>
+    <os>unix</os>
+</module>

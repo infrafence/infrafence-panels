@@ -1,0 +1,12 @@
+{
+  "name": "infrafence-plesk",
+  "version": "1.0.0",
+  "private": true,
+  "license": "BUSL-1.1",
+  "scripts": {
+    "build": "plesk-ext-sdk build"
+  },
+  "dependencies": {
+    "@plesk/plesk-ext-sdk": "0.6.3"
+  }
+}
