@@ -1,0 +1,59 @@
+[%#
+  Development stand-in for WHM's master_templates/master.tmpl, used only to
+  render the plugin outside cPanel (tests and screenshots). It accepts the same
+  variables the plugin passes (header, icon, breadcrumbdata) and draws a plain
+  approximation of the WHM frame around the page content.
+-%]
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WHM - [% header | html %]</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap">
+<style>
+  body { font-family: "Open Sans", "Helvetica Neue", Arial, sans-serif; font-size: 13px; color: #333; background: #fff; }
+  .whm-top { height: 48px; background: #233f5f; color: #fff; display: flex; align-items: center; padding: 0 16px; }
+  .whm-top .brand { font-weight: 600; font-size: 17px; letter-spacing: .5px; }
+  .whm-top .who { margin-left: auto; font-size: 12px; opacity: .85; }
+  .whm-wrap { display: flex; min-height: calc(100vh - 48px); }
+  .whm-side { width: 220px; flex: none; background: #f4f5f7; border-right: 1px solid #dfe2e6; padding: 12px 0; }
+  .whm-side input { margin: 0 12px 12px; width: calc(100% - 24px); }
+  .whm-side ul { list-style: none; margin: 0; padding: 0; }
+  .whm-side li a { display: block; padding: 6px 16px; color: #444; }
+  .whm-side li.on a { background: #e1e7ef; color: #233f5f; font-weight: 600; }
+  .whm-main { flex: 1; min-width: 0; padding: 14px 24px 32px; }
+  .whm-main .breadcrumb { background: none; padding: 0; margin: 0 0 10px; font-size: 12px; }
+  .whm-title { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; border-bottom: 1px solid #e5e5e5; padding-bottom: 10px; }
+  .whm-title img { width: 32px; height: 32px; }
+  .whm-title h1 { font-size: 22px; margin: 0; font-weight: 400; }
+  @media (max-width: 760px) { .whm-side { display: none; } .whm-main { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+<div class="whm-top"><span class="brand">WHM</span><span class="who">root</span></div>
+<div class="whm-wrap">
+  <nav class="whm-side" aria-label="WHM">
+    <input class="form-control input-sm" placeholder="Search Tools and Accounts" disabled>
+    <ul>
+      <li><a href="#">Server Configuration</a></li>
+      <li><a href="#">Networking Setup</a></li>
+      <li><a href="#">Security Center</a></li>
+      <li><a href="#">Account Functions</a></li>
+      <li><a href="#">Service Configuration</a></li>
+      <li><a href="#">Software</a></li>
+      <li class="on"><a href="#">Plugins</a></li>
+    </ul>
+  </nav>
+  <main class="whm-main">
+    <ol class="breadcrumb">
+      [%- FOREACH c IN breadcrumbdata.previous %]<li><a href="#">[% c.name | html %]</a></li>[% END %]
+      <li class="active">[% breadcrumbdata.name | html %]</li>
+    </ol>
+    <div class="whm-title">[% IF icon %]<img src="[% icon | html %]" alt="">[% END %]<h1>[% header | html %]</h1></div>
+[% content %]
+  </main>
+</div>
+</body>
+</html>

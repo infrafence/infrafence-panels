@@ -1,0 +1,51 @@
+<div class="ifn-head">
+  <h2>[% L.t('sites.title') | html %]</h2>
+  <p class="text-muted">[% L.t('sites.intro') | html %]</p>
+</div>
+[%- IF data.malware_scan_enabled.defined && !data.malware_scan_enabled %]
+<div class="alert alert-warning" role="status">[% L.t('sites.scan_disabled') | html %]</div>
+[%- END %]
+[%- IF data.site_count %]
+<p class="ifn-summary">
+  [% L.t('sites.summary', sites => L.number(data.site_count), accounts => L.number(data.account_count)) | html %]
+  <span class="label label-success">[% L.t('coverage.covered') | html %]: [% data.covered_count | html %]</span>
+  [%- IF data.site_count > data.covered_count %]
+  <span class="label label-default">[% L.t('coverage.not_covered') | html %]: [% data.site_count - data.covered_count | html %]</span>
+  [%- END %]
+</p>
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-sites' %]
+<div class="table-responsive">
+<table class="table table-condensed ifn-table" id="ifn-sites">
+  <thead><tr>
+    <th scope="col">[% L.t('col.domain') | html %]</th>
+    <th scope="col">[% L.t('col.docroot') | html %]</th>
+    <th scope="col">[% L.t('col.coverage') | html %]</th>
+    <th scope="col" class="ifn-actions"><span class="sr-only">[% L.t('col.actions') | html %]</span></th>
+  </tr></thead>
+  [%- FOREACH a IN data.accounts %]
+  <tbody class="ifn-group">
+  <tr class="ifn-account" data-ifn-keep>
+    <th colspan="4" scope="rowgroup">[% IF a.account.length %][% a.account | html %][% ELSE %]<span class="text-muted">[% L.t('sites.no_account') | html %]</span>[% END %]</th>
+  </tr>
+  [%- FOREACH s IN a.sites %]
+  <tr>
+    <td>[% s.domain | html %] <span class="text-muted ifn-type">[% L.label('domain_type', s.kind) | html %]</span></td>
+    <td class="ifn-path">[% IF s.document_root %]<span class="ifn-mono" title="[% s.document_root | html %]">[% s.document_root | html %]</span>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% IF s.scan_covered %]<span class="label label-success">[% L.t('coverage.covered') | html %]</span>[% ELSE %]<span class="label label-default">[% L.t('coverage.not_covered') | html %]</span>[% END %]</td>
+    <td class="ifn-actions">
+      [%- IF s.document_root && s.scannable %]
+      <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=sites&amp;action=scan&amp;path=[% s.document_root | uri | html %]">[% L.t('action.scan') | html %]</a>
+      [%- ELSE %]
+      [%- reason = !s.document_root ? 'no_docroot' : !s.account ? 'no_account' : 'not_owned' %]
+      <span class="text-muted ifn-managed" title="[% L.t('sites.not_scannable_help') | html %]">[% L.t('sites.reason.' _ reason) | html %]</span>
+      [%- END %]
+    </td>
+  </tr>
+  [%- END %]
+  </tbody>
+  [%- END %]
+</table>
+</div>
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('sites.empty') | html %]</p></div>
+[%- END %]

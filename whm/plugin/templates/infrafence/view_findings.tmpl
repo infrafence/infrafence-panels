@@ -1,0 +1,44 @@
+<div class="ifn-head">
+  <h2>[% L.t('findings.title') | html %]</h2>
+  <p class="text-muted">[% L.t('findings.intro') | html %]</p>
+</div>
+[%- IF data.kind_count.all %]
+<ul class="nav nav-pills ifn-pills">
+[%- FOREACH k IN data.kinds %]
+  <li[% IF k == data.kind %] class="active"[% END %]><a href="[% data.script | html %]?page=findings&amp;kind=[% k | uri | html %]">[% L.t('findings.kind.' _ k) | html %] <span class="badge">[% data.kind_count.$k || 0 | html %]</span></a></li>
+[%- END %]
+</ul>
+[%- END %]
+[%- IF data.findings.size %]
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-findings' %]
+<div class="table-responsive">
+<table class="table table-striped table-condensed ifn-table" id="ifn-findings">
+  <thead><tr>
+    <th scope="col">[% L.t('col.path') | html %]</th>
+    <th scope="col">[% L.t('col.kind') | html %]</th>
+    <th scope="col">[% L.t('col.severity') | html %]</th>
+    <th scope="col">[% L.t('col.status') | html %]</th>
+    <th scope="col">[% L.t('col.detected') | html %]</th>
+    <th scope="col">[% L.t('col.last_seen') | html %]</th>
+  </tr></thead>
+  <tbody>
+  [%- FOREACH f IN data.findings %]
+  <tr>
+    <td class="ifn-path"><span class="ifn-mono" title="[% f.path | html %]">[% f.path | html %]</span>
+      [%- IF f.name %]<br><small class="text-muted">[% f.name | html %]</small>[% END %]</td>
+    <td>[% L.label('kind', f.kind) | html %]</td>
+    <td><span class="label label-[% data.sev_class.${f.severity} || 'default' | html %]">[% L.label('severity', f.severity) | html %]</span></td>
+    <td>[% IF f.status == 'quarantined' %]<span class="label label-success">[% L.label('finding_status', f.status) | html %]</span>[% ELSE %][% L.label('finding_status', f.status) | html %][% END %]</td>
+    <td class="ifn-nowrap"><time datetime="[% f.detected | html %]">[% L.time(f.detected) | html %]</time></td>
+    <td class="ifn-nowrap">[% IF f.last_seen %]<time datetime="[% f.last_seen | html %]" title="[% L.time(f.last_seen) | html %]">[% L.ago(f.last_seen) | html %]</time>[% END %]</td>
+  </tr>
+  [%- END %]
+  </tbody>
+</table>
+</div>
+[%- IF data.total > data.kind_count.all %]
+<p class="text-muted">[% L.t('list.limited', shown => L.number(data.kind_count.all), total => L.number(data.total)) | html %]</p>
+[%- END %]
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('findings.empty') | html %]</p></div>
+[%- END %]

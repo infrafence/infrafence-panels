@@ -1,0 +1,43 @@
+<div class="ifn-head">
+  <h2>[% L.t('bans.title') | html %]</h2>
+  <p class="text-muted">[% L.t('bans.intro') | html %]</p>
+</div>
+[%- IF data.monitor_mode %]
+<div class="alert alert-info" role="status">[% L.t('bans.monitor_mode') | html %]</div>
+[%- END %]
+[%- IF data.bans.size %]
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-bans' %]
+<div class="table-responsive">
+<table class="table table-striped table-condensed ifn-table" id="ifn-bans">
+  <thead><tr>
+    <th scope="col">[% L.t('col.ip') | html %]</th>
+    <th scope="col">[% L.t('col.reason') | html %]</th>
+    <th scope="col">[% L.t('col.source') | html %]</th>
+    <th scope="col">[% L.t('col.banned') | html %]</th>
+    <th scope="col">[% L.t('col.expires') | html %]</th>
+    <th scope="col" class="ifn-actions"><span class="sr-only">[% L.t('col.actions') | html %]</span></th>
+  </tr></thead>
+  <tbody>
+  [%- FOREACH b IN data.bans %]
+  <tr>
+    <td class="ifn-ip">[% b.ip | html %]</td>
+    <td>[% IF b.reason %][% b.reason | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td><span class="label label-default">[% L.label('source', b.source) | html %]</span></td>
+    <td>[% IF b.created %]<time datetime="[% b.created | html %]">[% L.time(b.created) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% IF b.expires %]<time datetime="[% b.expires | html %]">[% L.time(b.expires) | html %]</time>[% ELSE %]<span class="text-muted">[% L.t('bans.permanent') | html %]</span>[% END %]</td>
+    <td class="ifn-actions">
+      <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=bans&amp;action=unban&amp;ip=[% b.ip | uri | html %]">[% L.t('action.unban') | html %]</a>
+      <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=bans&amp;action=allow&amp;ip=[% b.ip | uri | html %]">[% L.t('action.allow') | html %]</a>
+    </td>
+  </tr>
+  [%- END %]
+  </tbody>
+</table>
+</div>
+<p class="text-muted ifn-legend">[% L.t('bans.sources') | html %]</p>
+[%- IF data.total > data.bans.size %]
+<p class="text-muted">[% L.t('list.limited', shown => L.number(data.bans.size), total => L.number(data.total)) | html %]</p>
+[%- END %]
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('bans.empty') | html %]</p></div>
+[%- END %]

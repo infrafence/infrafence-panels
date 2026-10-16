@@ -1,0 +1,52 @@
+<div class="ifn-head">
+  <h2>[% L.t('allow.title') | html %]</h2>
+  <p class="text-muted">[% L.t('allow.intro') | html %]</p>
+</div>
+<form class="form-inline ifn-add" method="post" action="[% data.script | html %]">
+  <input type="hidden" name="page" value="allowlist">
+  <input type="hidden" name="action" value="allow">
+  <div class="form-group">
+    <label for="ifn-allow-ip">[% L.t('allow.ip') | html %]</label>
+    <input type="text" id="ifn-allow-ip" name="ip" class="form-control input-sm ifn-mono" required maxlength="45" spellcheck="false" autocomplete="off" placeholder="203.0.113.10" value="[% data.form.ip | html %]">
+  </div>
+  <div class="form-group">
+    <label for="ifn-allow-note">[% L.t('allow.note') | html %]</label>
+    <input type="text" id="ifn-allow-note" name="note" class="form-control input-sm" maxlength="200" placeholder="[% L.t('allow.note_hint') | html %]">
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">[% L.t('allow.add') | html %]</button>
+</form>
+[%- IF data.entries.size %]
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-allow' %]
+<div class="table-responsive">
+<table class="table table-striped table-condensed ifn-table" id="ifn-allow">
+  <thead><tr>
+    <th scope="col">[% L.t('col.address') | html %]</th>
+    <th scope="col">[% L.t('col.note') | html %]</th>
+    <th scope="col">[% L.t('col.source') | html %]</th>
+    <th scope="col">[% L.t('col.added_by') | html %]</th>
+    <th scope="col">[% L.t('col.added') | html %]</th>
+    <th scope="col" class="ifn-actions"><span class="sr-only">[% L.t('col.actions') | html %]</span></th>
+  </tr></thead>
+  <tbody>
+  [%- FOREACH e IN data.entries %]
+  <tr>
+    <td class="ifn-ip">[% e.address | html %]</td>
+    <td>[% IF e.note %][% e.note | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% L.label('allow_source', e.source) | html %]</td>
+    <td>[% IF e.actor %][% e.actor | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% IF e.added %]<time datetime="[% e.added | html %]">[% L.time(e.added) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td class="ifn-actions">
+      [%- IF e.source == 'panel' %]
+      <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=allowlist&amp;action=disallow&amp;ip=[% e.address | uri | html %]">[% L.t('action.disallow') | html %]</a>
+      [%- ELSE %]
+      <span class="text-muted ifn-managed">[% L.t('allow.managed') | html %]</span>
+      [%- END %]
+    </td>
+  </tr>
+  [%- END %]
+  </tbody>
+</table>
+</div>
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('allow.empty') | html %]</p></div>
+[%- END %]

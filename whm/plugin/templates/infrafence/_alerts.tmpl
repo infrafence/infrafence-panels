@@ -1,0 +1,44 @@
+[%- s = data.status -%]
+[%- IF s && !s.ok %]
+<div class="alert alert-danger" role="alert">
+  <strong>[% IF L.has('error.' _ s.error) %][% L.t('error.' _ s.error) | html %][% ELSE %][% L.t('alert.unreachable.title') | html %][% END %]</strong>
+  [% L.t('alert.unreachable.text') | html %]
+  [% INCLUDE 'infrafence/_error_detail.tmpl' e = s %]
+</div>
+[%- ELSIF s && !s.agent_running %]
+<div class="alert alert-warning" role="alert">
+  <strong>[% L.t('alert.stopped.title') | html %]</strong>
+  [% L.t('alert.stopped.text') | html %]
+  <code>systemctl status infrafence-agent</code>
+</div>
+[%- END %]
+[%- IF data.notice %]
+[%- n = data.notice %]
+<div class="alert alert-success" role="status">
+  [% L.t('notice.' _ n.code, ip => n.ip) | html %]
+  [%- IF n.code == 'unban_ok' && n.until %] [% L.t('notice.unban_until', until => L.time(n.until)) | html %][% END %]
+  [%- IF n.code == 'unban_ok' && (n.source == 'network' || n.source == 'automode') %] <strong>[% L.t('unban.elsewhere.' _ n.source) | html %]</strong>[% END %]
+  [%- IF n.banned %] [% L.t('notice.banned') | html %][% END %]
+  [%- IF n.unreported %] [% L.t('notice.unreported') | html %][% END %]
+</div>
+[%- IF n.threat_feed || n.pending || n.own %]
+<div class="alert alert-warning" role="status">
+  [%- IF n.own %][% L.t('notice.own_address', ip => n.ip) | html %][% END %]
+  [%- IF n.threat_feed %][% L.t('notice.threat_feed') | html %][% END %]
+  [%- IF n.pending %] [% L.t('notice.pending') | html %][% END %]
+</div>
+[%- END %]
+[%- END %]
+[%- FOREACH e IN data.errors %]
+<div class="alert alert-danger" role="alert">
+  [% IF e.action %]<strong>[% L.t('error.action_failed.' _ e.action) | html %]</strong>[% END %]
+  [% IF L.has('error.' _ e.error) %][% L.t('error.' _ e.error) | html %][% ELSE %][% L.t('error.generic') | html %][% END %]
+  [% INCLUDE 'infrafence/_error_detail.tmpl' %]
+</div>
+[%- END %]
+[%- IF data.list_error && s.ok && s.agent_running %]
+<div class="alert alert-danger" role="alert">
+  [% L.t('error.list') | html %]
+  [% INCLUDE 'infrafence/_error_detail.tmpl' e = data.list_error %]
+</div>
+[%- END %]

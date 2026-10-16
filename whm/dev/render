@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+
+# Renders every screen of the plugin with the mock agent and the stub WHM
+# master template into static HTML files, for review and screenshots.
+#
+#   dev/render OUTDIR [LANG ...]
+#
+# Serve OUTDIR over HTTP (e.g. `python3 -m http.server -d OUTDIR`) so the
+# absolute icon path resolves.
+
+use strict;
+use warnings;
+
+use FindBin;
+use File::Copy qw(copy);
+use File::Path qw(make_path);
+use lib "$FindBin::Bin/../t/lib";
+use IFTest qw(run_app render mock_agent $ROOT TOKEN);
+
+my ( $out, @langs ) = @ARGV;
+die "usage: $0 OUTDIR [LANG ...]\n" unless $out;
+@langs = qw(en it es fr de pt) unless @langs;
+
+my @screens = (
+    [ overview    => {} ],
+    [ bans        => { params => { page => 'bans' } } ],
+    [ allowlist   => { params => { page => 'allowlist' } } ],
+    [ findings    => { params => { page => 'findings' } } ],
+    [ events      => { params => { page => 'events' } } ],
+    [ coexistence => { params => { page => 'coexistence' } } ],
+    [ sites       => { params => { page => 'sites' } } ],
+    [ 'confirm-unban'    => { params => { page => 'bans', action => 'unban', ip => '203.0.113.7' } } ],
+    [ 'confirm-unban-network' => { params => { page => 'bans', action => 'unban', ip => '192.0.2.50' } } ],
+    [ 'notice-unban-automode' => { params => { page => 'bans', notice => 'unban_ok', ip => '198.51.100.23', until => '2026-10-16T16:00:00Z', source => 'automode' } } ],
+    [ 'confirm-allow'    => { params => { page => 'allowlist', action => 'allow', ip => '192.0.2.44', note => 'Office VPN' } } ],
+    [ 'confirm-disallow' => { params => { page => 'allowlist', action => 'disallow', ip => '198.51.100.4' } } ],
+    [ 'confirm-scan'     => { params => { page => 'sites', action => 'scan', path => '/home/alice/public_html' } } ],
+    [ 'notice-unban'     => { params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7', until => '2026-10-17T12:00:00Z', threat_feed => 1 } } ],
+    [ 'notice-own-address' => { params => { page => 'allowlist', notice => 'allow_already', ip => '192.0.2.1', own => 1 } } ],
+    [ 'notice-allow'     => { params => { page => 'allowlist', notice => 'allow_ok', ip => '203.0.113.7', banned => 1, unreported => 1 } } ],
+    [ 'error-disallow'   => { method => 'POST', params => { page => 'allowlist', action => 'disallow', ip => '203.0.113.20', confirm => 1, csrf => TOKEN } } ],
+    [ 'error-unban'      => { method => 'POST', params => { page => 'bans', action => 'unban', ip => '192.0.2.99', confirm => 1, csrf => TOKEN } } ],
+    [ 'not-installed'    => { agent => mock_agent( bin => undef ) } ],
+    [ 'stopped'          => { scenario => 'stopped' } ],
+    [ 'stopped-bans'     => { scenario => 'stopped', params => { page => 'bans' } } ],
+    [ 'monitor'          => { scenario => 'monitor' } ],
+    [ 'monitor-bans'     => { scenario => 'monitor', params => { page => 'bans' } } ],
+    [ 'empty-bans'       => { scenario => 'empty', params => { page => 'bans' } } ],
+    [ 'empty-coexistence' => { scenario => 'empty', params => { page => 'coexistence' } } ],
+    [ 'empty-sites'      => { scenario => 'empty', params => { page => 'sites' } } ],
+    [ 'restricted-sites' => { scenario => 'restricted', params => { page => 'sites' } } ],
+);
+
+make_path("$out/addon_plugins");
+copy( "$ROOT/plugin/icons/infrafence.png", "$out/addon_plugins/infrafence.png" );
+
+for my $lang (@langs) {
+    make_path("$out/$lang");
+    open my $idx, '>', "$out/$lang/index.html" or die $!;
+    print {$idx} "<!DOCTYPE html><meta charset=utf-8><title>InfraFence WHM plugin ($lang)</title><ul>\n";
+    for my $s (@screens) {
+        my ( $name, $opts ) = @$s;
+        my $html = render( run_app( lang => $lang, %$opts ) );
+        open my $fh, '>:raw', "$out/$lang/$name.html" or die $!;
+        print {$fh} $html;
+        close $fh;
+        print {$idx} qq{<li><a href="$name.html">$name</a></li>\n};
+    }
+    close $idx;
+    print "$out/$lang: ", scalar @screens, " screens\n";
+}

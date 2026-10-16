@@ -1,0 +1,1 @@
+{"agent_running":true,"control_panel":"cpanel","malware_scan_enabled":false,"ok":true,"sites":[{"account":"<script>alert(21)</script>","document_root":"/home/x/\"><script>alert(22)</script>","domain":"x\"><svg onload=alert(23)>.example","kind":"<b>main</b>","scan_covered":true,"scannable":true}]}

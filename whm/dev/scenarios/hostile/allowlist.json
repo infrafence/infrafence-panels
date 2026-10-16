@@ -1,0 +1,1 @@
+{"agent_running":true,"allowlist":[{"actor":"<b>root</b>","added":"x","address":"192.0.2.1\"><script>alert(10)</script>","note":"<script>alert(11)</script>","source":"panel"},{"actor":null,"added":null,"address":"<i>10.0.0.0/8</i>","note":null,"source":"<u>dashboard</u>"}],"ok":true}

@@ -1,0 +1,10 @@
+# Test image: AlmaLinux with the Perl modules the plugin uses. cPanel ships
+# its own Perl with Template Toolkit; here the distribution packages stand in.
+ARG BASE=almalinux:9
+FROM ${BASE}
+RUN dnf -y install epel-release \
+ && (dnf config-manager --set-enabled crb || dnf config-manager --set-enabled powertools || true) \
+ && dnf -y install perl-interpreter perl-Test-Simple perl-Test-Harness perl-JSON-PP perl-Time-Local \
+      perl-Socket perl-IO perl-File-Temp perl-Time-HiRes perl-PathTools perl-Template-Toolkit procps-ng \
+ && dnf clean all
+WORKDIR /src/whm

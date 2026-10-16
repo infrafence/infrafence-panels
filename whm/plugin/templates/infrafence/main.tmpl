@@ -1,0 +1,44 @@
+[%#
+  WHM » Plugins » InfraFence. Every view is rendered inside WHM's own master
+  template. All values are escaped with the html filter where they are printed.
+-%]
+[%- SET L = data.L -%]
+[%- WRAPPER 'master_templates/master.tmpl'
+    header = 'InfraFence'
+    icon = '/addon_plugins/infrafence.png'
+    theme = 'bootstrap'
+    skipsupport = 1
+    breadcrumbdata = {
+        previous = [
+            { name = L.t('crumb.home'), url = '/scripts/command?PFILE=main' },
+            { name = L.t('crumb.plugins'), url = '/scripts/command?PFILE=Plugins' },
+        ],
+        name = 'InfraFence',
+        url = '/cgi/infrafence/index.cgi',
+    }
+-%]
+[% INCLUDE 'infrafence/_style.tmpl' %]
+<div id="ifn" class="ifn" lang="[% L.lang | html %]">
+[%- IF data.view == 'not_installed' %]
+[% INCLUDE 'infrafence/view_not_installed.tmpl' %]
+[%- ELSE %]
+[% INCLUDE 'infrafence/_nav.tmpl' %]
+[% INCLUDE 'infrafence/_alerts.tmpl' %]
+[%- SWITCH data.view %]
+[%- CASE 'overview' %][% INCLUDE 'infrafence/view_overview.tmpl' %]
+[%- CASE 'bans' %][% INCLUDE 'infrafence/view_bans.tmpl' %]
+[%- CASE 'allowlist' %][% INCLUDE 'infrafence/view_allowlist.tmpl' %]
+[%- CASE 'findings' %][% INCLUDE 'infrafence/view_findings.tmpl' %]
+[%- CASE 'events' %][% INCLUDE 'infrafence/view_events.tmpl' %]
+[%- CASE 'coexistence' %][% INCLUDE 'infrafence/view_coexistence.tmpl' %]
+[%- CASE 'sites' %][% INCLUDE 'infrafence/view_sites.tmpl' %]
+[%- CASE 'confirm' %][% INCLUDE 'infrafence/view_confirm.tmpl' %]
+[%- END %]
+[%- END %]
+<p class="ifn-foot text-muted">
+  [% L.t('footer.plugin', version => data.version) | html %]
+  &middot; <a href="[% data.site_url | html %]" target="_blank" rel="noopener noreferrer">infrafence.com</a>
+</p>
+</div>
+[% INCLUDE 'infrafence/_script.tmpl' %]
+[%- END -%]

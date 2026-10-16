@@ -1,0 +1,1 @@
+{"agent_id":42,"agent_running":true,"automode":{"state":"<script>alert(1)</script>"},"connected":true,"control_panel":"<b>cp</b>","dashboard_url":"javascript:alert(2)","last_heartbeat":"<i>x</i>","last_sync":"\" onmouseover=\"alert(3)","monitor_mode":false,"ok":true,"plan":"<img src=x onerror=alert(4)>","suspended":false,"version":"<svg onload=alert(5)>"}
