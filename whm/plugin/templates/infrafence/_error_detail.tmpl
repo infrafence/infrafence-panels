@@ -1,2 +1,3 @@
-[%- IF e.message.length %]<span class="ifn-detail">[% e.message | html %]</span>[% END %]
+[%#  The agent's English message is for logs: shown only when the code has no translation. -%]
+[%- IF e.message.length && !L.has('error.' _ e.error) %]<span class="ifn-detail">[% e.message | html %]</span>[% END %]
 <span class="ifn-code">([% e.error | html %])</span>

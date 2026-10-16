@@ -8,7 +8,7 @@
   <span>[% IF L.has('mode.' _ data.mode _ '.text') %][% L.t('mode.' _ data.mode _ '.text') | html %][% END %]</span>
 </div>
 [%- END %]
-[%- IF data.detected.size %]
+[%- IF data.tools.size %]
 <div class="table-responsive">
 <table class="table table-condensed ifn-table ifn-coex">
   <thead><tr>
@@ -17,12 +17,17 @@
     <th scope="col">[% L.t('col.handling') | html %]</th>
   </tr></thead>
   <tbody>
-  [%- FOREACH t IN data.detected %]
+  [%- FOREACH t IN data.tools %]
   <tr>
-    <td><strong>[% t.name | html %]</strong>[% IF t.version %] <span class="text-muted">[% t.version | html %]</span>[% END %]</td>
-    <td>[% IF t.running %]<span class="label label-success">[% L.t('coex.active') | html %]</span>[% ELSE %]<span class="label label-default">[% L.t('coex.installed') | html %]</span>[% END %]</td>
-    <td><strong>[% L.label('handling', t.handling) | html %]</strong>
-      [%- IF L.has('handling.' _ t.handling _ '.text') %]<br><span class="text-muted">[% L.t('handling.' _ t.handling _ '.text') | html %]</span>[% END %]</td>
+    <td class="ifn-tool">
+      <strong>[% t.name | html %]</strong>[% IF t.version %] <span class="text-muted">[% t.version | html %]</span>[% END %]
+      <br><small class="text-muted">[% L.label('tool_kind', t.kind) | html %][% IF t.manages_firewall %] &middot; [% L.t('coex.own_rules') | html %][% END %]</small>
+      [%- IF t.rulesets.size %]
+      <br><small>[% L.t('coex.rulesets') | html %]: [% FOREACH r IN t.rulesets %][% r | html %][% UNLESS loop.last %], [% END %][% END %]</small>
+      [%- END %]
+    </td>
+    <td>[% IF t.active %]<span class="label label-success">[% L.t('coex.active') | html %]</span>[% ELSE %]<span class="label label-default">[% L.t('coex.inactive') | html %]</span>[% END %]</td>
+    <td>[% IF L.has('coex_action.' _ t.action_id) %][% L.t('coex_action.' _ t.action_id) | html %][% ELSE %][% t.action | html %][% END %]</td>
   </tr>
   [%- END %]
   </tbody>
@@ -30,42 +35,4 @@
 </div>
 [%- ELSIF !data.list_error %]
 <div class="ifn-empty"><p>[% L.t('coex.none') | html %]</p></div>
-[%- END %]
-
-[%- ms = data.modsecurity %]
-[%- IF ms %]
-<h3 class="ifn-sub">ModSecurity</h3>
-[%- IF ms.installed %]
-<p>[% L.t('coex.modsec.engine') | html %]: <span class="label label-[% IF ms.engine == 'on' %]success[% ELSIF ms.engine == 'detection_only' %]warning[% ELSE %]default[% END %]">[% L.label('modsec_engine', ms.engine) | html %]</span></p>
-[%- IF ms.vendors.size %]
-<div class="table-responsive">
-<table class="table table-condensed ifn-table">
-  <thead><tr>
-    <th scope="col">[% L.t('col.vendor') | html %]</th>
-    <th scope="col">[% L.t('col.version') | html %]</th>
-    <th scope="col">[% L.t('col.state') | html %]</th>
-  </tr></thead>
-  <tbody>
-  [%- FOREACH v IN ms.vendors %]
-  <tr>
-    <td>[% v.name | html %]</td>
-    <td>[% v.version | html %]</td>
-    <td>[% IF v.enabled %]<span class="label label-success">[% L.t('coex.enabled') | html %]</span>[% ELSE %]<span class="label label-default">[% L.t('coex.disabled') | html %]</span>[% END %]</td>
-  </tr>
-  [%- END %]
-  </tbody>
-</table>
-</div>
-[%- END %]
-<p class="text-muted">[% L.t('coex.modsec.note') | html %]</p>
-[%- ELSE %]
-<p class="text-muted">[% L.t('coex.modsec.absent') | html %]</p>
-[%- END %]
-[%- END %]
-
-[%- IF data.not_found.size %]
-<h3 class="ifn-sub">[% L.t('coex.checked') | html %]</h3>
-<p class="text-muted ifn-checked">
-[%- FOREACH t IN data.not_found %][% t.name | html %][% UNLESS loop.last %] &middot; [% END %][% END %]
-</p>
 [%- END %]

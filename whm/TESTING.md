@@ -36,35 +36,39 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
 - [ ] `/var/cpanel/apps/infrafence.conf` exists. `/usr/local/cpanel/bin/register_appconfig --list` (if available) lists `infrafence`.
 - [ ] WHM » Plugins shows **InfraFence** with its icon. Searching "InfraFence" in the WHM sidebar finds it.
 - [ ] The page opens inside WHM's normal frame (header, sidebar, breadcrumb), not as a bare page.
-- [ ] It shows "The InfraFence agent is not installed on this server", the install command, the Copy button and the link to infrafence.com.
+- [ ] It shows "The InfraFence agent is not installed on this server", the instruction to add the server in the dashboard (Servers > Add server), and the Add server button opening https://infrafence.com/add-server.
 - [ ] `iptables-save | md5sum` and the list of running units are unchanged; `cpsrvd` was not restarted (`systemctl status cpsrvd`, uptime).
 
 ### 2. With the mock agent (before the real agent is ready)
 
     install -o root -g root -m 0755 dev/mock-agent /usr/local/bin/infrafence-agent
-    cp -r dev/fixtures /usr/local/bin/fixtures
+    cp -r dev/fixtures dev/scenarios /usr/local/bin/
 
 - [ ] Every tab renders: Overview, Bans, Allow list, Findings, Events, Coexistence, Sites.
 - [ ] Unban, Allow, Remove and Scan now each open a confirmation page first. Cancel goes back and changes nothing.
-- [ ] Confirming shows a green message (the mock does not keep state, so the lists do not change).
-- [ ] Unban `192.0.2.99` by editing the URL of a confirmation page: the agent's "not found" error appears in red.
+- [ ] Confirming shows a green message (the mock does not keep state, so the lists do not change). Allowing `203.0.113.7` (banned) adds the note that the ban stays listed.
+- [ ] Unban `192.0.2.99` by editing the URL of a confirmation page: "This address is not banned on this server" appears in red.
+- [ ] Allow list: the dashboard entries (`203.0.113.20`, `10.0.0.0/8`) show "Managed in the dashboard" and no Remove button.
 - [ ] Security token: copy the confirmation form, change the `csrf` field (browser dev tools) and submit: "The security check failed" and HTTP 403.
 - [ ] Open a confirmation URL with a different `/cpsess…/` token: WHM itself refuses it.
 - [ ] `chmod 0777 /usr/local/bin/infrafence-agent` and reload: the page reports the binary is not trusted. Restore `0755`.
 - [ ] Change the WHM language (top right: user menu » Change Language) to Italiano, Español, Français, Deutsch and Português: the plugin follows. Check `pt_br` also maps to Portuguese.
 - [ ] Log in as a reseller with some privileges (not "all"): the plugin is not listed, and opening `/cgi/infrafence/index.cgi` directly gives "Access denied".
-- [ ] Remove the mock (`rm -r /usr/local/bin/infrafence-agent /usr/local/bin/fixtures`).
+- [ ] Remove the mock (`rm -r /usr/local/bin/infrafence-agent /usr/local/bin/fixtures /usr/local/bin/scenarios`).
 
 ### 3. With the real agent
 
-Install the agent following infrafence.com, then:
+Add the server in the dashboard (Servers > Add server) and run the command shown there, then:
 
-- [ ] Overview: version, heartbeat a few seconds old, plan, AutoMode, "Open in InfraFence" opens the right server on the dashboard. In the dashboard's request log, the Referer does not contain `/cpsess`.
-- [ ] Ban a test address from another machine (e.g. failed SSH logins), find it under Bans, unban it, and confirm it is not banned again and that the dashboard shows the event with `source: panel` and actor `root`.
+- [ ] Overview: version, heartbeat under 3 minutes old, last sync, server ID, hosting panel "cPanel & WHM", plan. "Open in InfraFence" opens the right server on the dashboard. In the dashboard's request log, the Referer does not contain `/cpsess`.
+- [ ] Turn monitor mode on in the dashboard: Overview shows "Monitor mode" and Bans says the bans are not enforced. Turn it off again.
+- [ ] Ban a test address from another machine (e.g. failed SSH logins), find it under Bans, unban it. The message says the lift is on this server only and when it ends. The dashboard shows the `panel_unban` event with actor `root`, and the ban is still in force on the organization's other servers.
+- [ ] Allow the server's own public address: the warning says it is one of the server's own addresses. Allow `127.0.0.1`: refused (loopback).
 - [ ] Add and remove an allow-list entry, with a note containing accents (e.g. "Ufficio Città").
-- [ ] Scan now on a site; the dashboard shows the queued scan.
-- [ ] Stop the agent (`systemctl stop infrafence-agent`): the yellow "not running" banner, "Not protected" on Overview, lists show the error. Start it again.
-- [ ] With CSF installed: Coexistence lists CSF/lfd and the plugin changed nothing in `/etc/csf`.
+- [ ] Sites: a document root outside the account's home (or not owned by it) shows "Cannot be scanned" and no Scan now button.
+- [ ] Scan now on a site; the dashboard shows the scan. Start a second one at once: "A malware scan is already running".
+- [ ] Stop the agent (`systemctl stop infrafence-agent`): the yellow "not running" banner, "Not protected" on Overview, Bans/Findings/Events show the error, Coexistence and Sites still list. Start it again.
+- [ ] With CSF installed: Coexistence lists CSF and lfd with the translated explanation, and the plugin changed nothing in `/etc/csf`.
 
 ### 4. Upgrade and uninstall
 
@@ -98,4 +102,5 @@ These depend on cPanel internals that the stubs can only approximate:
 - the variables passed to `master_templates/master.tmpl` (`header`, `icon`, `breadcrumbdata`, `theme`) give the expected title, icon and breadcrumb;
 - `Cpanel::Template::process_template('whostmgr', { template_file, print, data })` finds `infrafence/main.tmpl`, and accented text is printed correctly (no double encoding);
 - `Cpanel::Locale->get_handle->get_language_tag` returns the WHM user's language;
-- the `Status: 303` redirect after an action lands back on the right tab with the green message.
+- the `Status: 303` redirect after an action lands back on the right tab with the green message;
+- `status.automode`, once the dashboard sends it: check what the Overview shows and adjust `_automode` in `App.pm` to its real fields.

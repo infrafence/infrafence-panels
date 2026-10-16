@@ -1,15 +1,22 @@
 #!/usr/bin/env perl
 
 # Stand-in for `infrafence-agent` during development and tests. It answers
-# `infrafence-agent panel <command> [args] --json` as described in
-# docs/panel-contract.md, from the JSON files in dev/fixtures/.
+# `infrafence-agent panel <command> [args] --json` the way the agent does
+# (docs/panel-json.md), from copies of the agent's own outputs in
+# dev/fixtures/. Replies to actions are the fixture with the address or path
+# of the request filled in.
 #
 # Environment:
-#   MOCK_AGENT_SCENARIO  default | stopped | empty | hostile   (default: default)
-#                        Files missing from a scenario are taken from default/.
-#                        In "stopped", every command but status answers with
-#                        stopped/_error.json, as an agent whose service is down.
+#   MOCK_AGENT_SCENARIO  default | stopped | empty | monitor | restricted | hostile
+#                        stopped: the agent is not running. status answers
+#                        status_agent_not_running.json; coexistence and sites
+#                        still answer (agent_running false); every other
+#                        command answers error_agent_not_running.json.
+#                        empty, monitor, restricted, hostile: replies from dev/scenarios/<name>/,
+#                        falling back to dev/fixtures/.
 #   MOCK_AGENT_FIXTURES  fixtures directory (default: next to this script)
+#   MOCK_AGENT_NOW       the clock used by --since (default 2026-10-16T12:01:00Z,
+#                        just after the fixtures' newest time)
 #   MOCK_AGENT_LOG       append each argv, as a JSON array, to this file
 #   MOCK_AGENT_FAULT     timeout | garbage | mismatch | stderr  (test faults)
 
@@ -18,10 +25,14 @@ use warnings;
 
 use File::Basename qw(dirname);
 use JSON::PP ();
+use Time::Local qw(timegm);
 
-my $JSON     = JSON::PP->new->canonical;
-my $fixtures = $ENV{MOCK_AGENT_FIXTURES} || dirname(__FILE__) . '/fixtures';
-my $scenario = $ENV{MOCK_AGENT_SCENARIO} || 'default';
+my $JSON      = JSON::PP->new->canonical;
+my $fixtures  = $ENV{MOCK_AGENT_FIXTURES} || dirname(__FILE__) . '/fixtures';
+my $scenarios = dirname($fixtures) . '/scenarios';
+my $scenario  = $ENV{MOCK_AGENT_SCENARIO} || 'default';
+my $T         = JSON::PP::true;
+my $F         = JSON::PP::false;
 
 if ( my $log = $ENV{MOCK_AGENT_LOG} ) {
     open my $fh, '>>', $log or die "cannot write $log: $!\n";
@@ -31,7 +42,7 @@ if ( my $log = $ENV{MOCK_AGENT_LOG} ) {
 
 my $fault = $ENV{MOCK_AGENT_FAULT} || '';
 if ( $fault eq 'timeout' ) { sleep 30; exit 0 }
-if ( $fault eq 'garbage' ) { print "InfraFence agent 1.8.3\nusage: ...\n"; exit 0 }
+if ( $fault eq 'garbage' ) { print "InfraFence agent 1.0.23\nusage: ...\n"; exit 0 }
 if ( $fault eq 'stderr' )  { print STDERR "warning: noise on stderr\n" }
 
 sub reply {
@@ -42,109 +53,171 @@ sub reply {
     exit $code;
 }
 
-sub fail { reply( { ok => JSON::PP::false, error => $_[0], message => $_[1] || '' } ) }
+# Refused before asking the agent: no agent_running key.
+sub refuse { reply( { ok => $F, error => $_[0], message => $_[1] } ) }
+
+# Refused by the agent.
+sub fail { reply( { ok => $F, agent_running => $T, error => $_[0], message => $_[1] } ) }
 
 sub fixture {
     my ($name) = @_;
-    for my $dir ( "$fixtures/$scenario", "$fixtures/default" ) {
+    my @dirs = $scenario =~ /\A(?:empty|hostile|monitor|restricted)\z/ ? ( "$scenarios/$scenario", $fixtures ) : ($fixtures);
+    for my $dir (@dirs) {
         my $file = "$dir/$name.json";
         next unless -f $file;
         open my $fh, '<:raw', $file or die "cannot read $file: $!\n";
         local $/;
-        my $data = JSON::PP->new->utf8->decode(<$fh>);
-        return $data;
+        return JSON::PP->new->utf8->decode(<$fh>);
     }
-    fail( 'internal', "no fixture for $name" );
+    refuse( 'internal_error', "mock: no fixture $name" );
+}
+
+sub epoch {
+    my ($s) = @_;
+    my @p = $s =~ /\A(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?(?:Z|[+-]00:?00)\z/ or return undef;
+    return timegm( $p[5], $p[4], $p[3], $p[2], $p[1] - 1, $p[0] );
 }
 
 my @args = @ARGV;
-fail( 'invalid_args', 'expected: panel <command> ... --json' ) unless @args && shift(@args) eq 'panel';
+refuse( 'bad_request', 'usage: infrafence-agent panel <command> [args] --json' ) unless @args && shift(@args) eq 'panel';
 my $json = grep { $_ eq '--json' } @args;
 @args = grep { $_ ne '--json' } @args;
-unless ($json) { print "human output is not part of the contract\n"; exit 2 }
+unless ($json) { print "human output is not part of the panel contract\n"; exit 2 }
 
 my $command = shift @args;
-fail( 'invalid_args', 'missing command' ) unless defined $command;
+refuse( 'bad_request', 'missing command' ) unless defined $command;
 
-# Options and positional arguments per command.
 my %SPEC = (
     status      => { pos => 0, opts => [] },
     bans        => { pos => 0, opts => ['limit'] },
-    unban       => { pos => 1, opts => ['actor'], need => ['actor'] },
-    allow       => { pos => 1, opts => [ 'note', 'actor' ], need => ['actor'] },
+    unban       => { pos => 1, opts => ['actor'], actor => 1 },
+    allow       => { pos => 1, opts => [ 'note', 'actor' ], actor => 1 },
     allowlist   => { pos => 0, opts => [] },
-    disallow    => { pos => 1, opts => ['actor'], need => ['actor'] },
+    disallow    => { pos => 1, opts => ['actor'], actor => 1 },
     findings    => { pos => 0, opts => ['limit'] },
     events      => { pos => 0, opts => [ 'limit', 'since' ] },
     coexistence => { pos => 0, opts => [] },
     sites       => { pos => 0, opts => [] },
-    scan        => { pos => 1, opts => ['actor'], need => ['actor'] },
+    scan        => { pos => 1, opts => ['actor'], actor => 1 },
 );
-my $spec = $SPEC{$command} or fail( 'unknown_command', "unknown command: $command" );
+my $spec = $SPEC{$command} or refuse( 'unknown_command', "unknown command: $command" );
 
 my ( @pos, %opt );
 while (@args) {
     my $a = shift @args;
     if ( $a =~ /\A--([a-z]+)\z/ ) {
         my $name = $1;
-        fail( 'invalid_args', "unknown option --$name for $command" ) unless grep { $_ eq $name } @{ $spec->{opts} };
-        fail( 'invalid_args', "--$name needs a value" ) unless @args;
+        refuse( 'bad_request', "unknown option --$name" ) unless grep { $_ eq $name } @{ $spec->{opts} };
+        refuse( 'bad_request', "--$name needs a value" ) unless @args;
         $opt{$name} = shift @args;
     }
     else {
         push @pos, $a;
     }
 }
-fail( 'invalid_args', "$command takes $spec->{pos} argument(s)" ) unless @pos == $spec->{pos};
-for ( @{ $spec->{need} || [] } ) {
-    fail( 'invalid_args', "--$_ is required" ) unless defined $opt{$_} && length $opt{$_};
-}
+refuse( 'bad_request', "$command takes $spec->{pos} argument(s)" ) unless @pos == $spec->{pos};
 if ( defined $opt{limit} ) {
-    fail( 'invalid_args', '--limit must be a positive number' ) unless $opt{limit} =~ /\A[1-9][0-9]{0,5}\z/;
+    refuse( 'bad_request', '--limit must be 1-500' ) unless $opt{limit} =~ /\A[1-9][0-9]{0,2}\z/ && $opt{limit} <= 500;
+}
+my $limit = defined $opt{limit} ? $opt{limit} : 50;
+if ( $spec->{actor} ) {
+    refuse( 'invalid_actor', '--actor must be 1-64 of A-Z a-z 0-9 . _ @ - +' )
+      unless defined $opt{actor} && $opt{actor} =~ /\A[A-Za-z0-9._\@+-]{1,64}\z/;
+}
+if ( defined $opt{note} ) {
+    refuse( 'bad_request', 'invalid --note' ) if length $opt{note} > 200 || $opt{note} =~ /[\x00-\x1f\x7f]/;
 }
 
-my $status = fixture('status');
-reply($status) if $command eq 'status';
-reply( fixture('_error') ) if $scenario eq 'stopped';
+# Arguments checked before asking the agent.
+my $target = $pos[0];
+if ( grep { $command eq $_ } qw(unban allow disallow) ) {
+    refuse( 'invalid_ip', 'not a single IPv4 or IPv6 address' )
+      unless defined $target && $target =~ /\A(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9A-Fa-f:]*:[0-9A-Fa-f:.]*)\z/
+      && $target ne '0.0.0.0' && $target ne '::';
+}
+if ( $command eq 'scan' ) {
+    refuse( 'invalid_path', 'not a clean absolute path' )
+      unless $target =~ m{\A/} && $target !~ m{(?:\A|/)\.\.?(?:/|\z)} && $target !~ m{//} && $target !~ /[\x00-\x1f]/;
+}
+
+my $stopped = $scenario eq 'stopped';
+if ( $command eq 'status' ) {
+    reply( fixture( $stopped ? 'status_agent_not_running' : 'status' ) );
+}
+if ( $command eq 'coexistence' || $command eq 'sites' ) {
+    my $r = fixture($command);
+    if ($stopped) {
+        $r->{agent_running}        = $F;
+        $r->{malware_scan_enabled} = undef if $command eq 'sites';
+    }
+    reply($r);
+}
+reply( fixture('error_agent_not_running') ) if $stopped;
 
 sub limited {
-    my ( $data, $field ) = @_;
-    if ( defined $opt{limit} && ref $data->{$field} eq 'ARRAY' && @{ $data->{$field} } > $opt{limit} ) {
-        $data->{total} = scalar @{ $data->{$field} } if $field eq 'bans' && !defined $data->{total};
-        splice @{ $data->{$field} }, $opt{limit};
-    }
-    reply($data);
+    my ( $r, $field ) = @_;
+    splice @{ $r->{$field} }, $limit if @{ $r->{$field} } > $limit;
+    reply($r);
 }
-
-sub ip_ok { $_[0] =~ /\A(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-f:]+)\z/i }
 
 limited( fixture('bans'),     'bans' )     if $command eq 'bans';
 limited( fixture('findings'), 'findings' ) if $command eq 'findings';
-limited( fixture('events'),   'events' )   if $command eq 'events';
-reply( fixture($command) ) if grep { $command eq $_ } qw(allowlist coexistence sites);
-
-my $target = $pos[0];
-if ( $command eq 'unban' ) {
-    fail( 'invalid_ip', "not an IP address: $target" ) unless ip_ok($target);
-    fail( 'not_found', "no active ban for $target" ) unless grep { $_->{ip} eq $target } @{ fixture('bans')->{bans} };
-    reply( { ok => JSON::PP::true, ip => $target } );
+if ( $command eq 'events' ) {
+    my $r = fixture('events');
+    if ( defined( my $since = $opt{since} ) ) {
+        my $now = epoch( $ENV{MOCK_AGENT_NOW} || '2026-10-16T12:01:00Z' );
+        my $from;
+        if    ( $since =~ /\A(\d+)h\z/ ) { $from = $now - $1 * 3600 }
+        elsif ( $since =~ /\A(\d+)m\z/ ) { $from = $now - $1 * 60 }
+        else                             { $from = epoch($since) }
+        refuse( 'bad_request', 'invalid --since' ) unless defined $from && $now - $from <= 90 * 86400;
+        $r->{events} = [ grep { my $t = epoch( $_->{time} ); defined $t && $t >= $from } @{ $r->{events} } ];
+    }
+    limited( $r, 'events' );
 }
+reply( fixture('allowlist') ) if $command eq 'allowlist';
+
+my @bans  = @{ fixture('bans')->{bans} };
+my @allow = @{ fixture('allowlist')->{allowlist} };
+
+if ( $command eq 'unban' ) {
+    my ($ban) = grep { $_->{ip} eq $target } @bans;
+    fail( 'not_banned', "$target is not banned by InfraFence on this server" ) unless $ban;
+    my $r = fixture('unban');
+    $r->{ip}     = $target;
+    $r->{source} = $ban->{source};
+    $r->{lifted_until} = $ban->{expires} if defined $ban->{expires};
+    reply($r);
+}
+# Stands for the server's own public address in the mock.
+my $OWN = '192.0.2.1';
 if ( $command eq 'allow' ) {
-    fail( 'invalid_ip', "not an IP address: $target" ) unless ip_ok($target);
-    fail( 'already_allowed', "$target is already on the allow list" )
-      if grep { $_->{ip} eq $target } @{ fixture('allowlist')->{entries} };
-    reply( { ok => JSON::PP::true, ip => $target, note => defined $opt{note} ? $opt{note} : '' } );
+    fail( 'loopback_address', "$target is a loopback address" ) if $target =~ /\A127\./ || $target eq '::1';
+    my $own = $target eq $OWN ? $T : $F;
+    reply( { ok => $T, agent_running => $T, ip => $target, already => $T, own_address => $own } )
+      if $own || grep { $_->{address} eq $target } @allow;
+    my $r = fixture('allow');
+    $r->{ip}          = $target;
+    $r->{banned}      = ( grep { $_->{ip} eq $target } @bans ) ? $T : $F;
+    $r->{own_address} = $own;
+    reply($r);
 }
 if ( $command eq 'disallow' ) {
-    fail( 'invalid_ip', "not an IP address: $target" ) unless ip_ok($target);
-    fail( 'not_found', "$target is not on the allow list" )
-      unless grep { $_->{ip} eq $target } @{ fixture('allowlist')->{entries} };
-    reply( { ok => JSON::PP::true, ip => $target } );
+    my ($e) = grep { $_->{address} eq $target } @allow;
+    fail( 'not_in_allowlist', "$target is not on the allow list" ) unless $e;
+    fail( 'managed_by_dashboard', "$target is on the organization's allow list; remove it in the dashboard" )
+      if $e->{source} ne 'panel';
+    my $r = fixture('disallow');
+    $r->{ip} = $target;
+    reply($r);
 }
 if ( $command eq 'scan' ) {
-    fail( 'unknown_path', "not a known document root: $target" )
-      unless grep { defined $_->{docroot} && $_->{docroot} eq $target } @{ fixture('sites')->{sites} };
-    reply( { ok => JSON::PP::true, path => $target, scan_id => 'scn_' . substr( unpack( 'H*', $target ), 0, 10 ) } );
+    my @sites = grep { defined $_->{document_root} && $_->{document_root} eq $target } @{ fixture('sites')->{sites} };
+    fail( 'not_a_document_root', "$target is not the document root of any site" ) unless @sites;
+    fail( 'not_scannable', "$target does not belong to the site's account" ) unless grep { $_->{scannable} } @sites;
+    my $r = fixture('scan');
+    $r->{path} = $target;
+    reply($r);
 }
 
-fail( 'internal', "unhandled command $command" );
+refuse( 'internal_error', "mock: unhandled command $command" );

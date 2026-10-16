@@ -1,4 +1,0 @@
-{"ok": true, "mode": "primary", "tools": [
-  {"id": "csf", "name": "CSF/lfd", "detected": false, "running": false, "version": null, "handling": null},
-  {"id": "imunify360", "name": "Imunify360", "detected": false, "running": false, "version": null, "handling": null}
-], "modsecurity": {"installed": false, "engine": null, "vendors": []}}

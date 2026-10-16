@@ -2,6 +2,9 @@
   <h2>[% L.t('bans.title') | html %]</h2>
   <p class="text-muted">[% L.t('bans.intro') | html %]</p>
 </div>
+[%- IF data.monitor_mode %]
+<div class="alert alert-info" role="status">[% L.t('bans.monitor_mode') | html %]</div>
+[%- END %]
 [%- IF data.bans.size %]
 [% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-bans' %]
 <div class="table-responsive">
@@ -18,9 +21,9 @@
   [%- FOREACH b IN data.bans %]
   <tr>
     <td class="ifn-ip">[% b.ip | html %]</td>
-    <td>[% b.reason | html %]</td>
+    <td>[% IF b.reason %][% b.reason | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
     <td><span class="label label-default">[% L.label('source', b.source) | html %]</span></td>
-    <td><time datetime="[% b.created | html %]">[% L.time(b.created) | html %]</time></td>
+    <td>[% IF b.created %]<time datetime="[% b.created | html %]">[% L.time(b.created) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
     <td>[% IF b.expires %]<time datetime="[% b.expires | html %]">[% L.time(b.expires) | html %]</time>[% ELSE %]<span class="text-muted">[% L.t('bans.permanent') | html %]</span>[% END %]</td>
     <td class="ifn-actions">
       <a class="btn btn-default btn-xs" href="[% data.script | html %]?page=bans&amp;action=unban&amp;ip=[% b.ip | uri | html %]">[% L.t('action.unban') | html %]</a>
@@ -31,6 +34,7 @@
   </tbody>
 </table>
 </div>
+<p class="text-muted ifn-legend">[% L.t('bans.sources') | html %]</p>
 [%- IF data.total > data.bans.size %]
 <p class="text-muted">[% L.t('list.limited', shown => L.number(data.bans.size), total => L.number(data.total)) | html %]</p>
 [%- END %]

@@ -80,16 +80,16 @@ chown -R root:root /opt/infrafence; chmod 0755 /opt/infrafence/bin/infrafence-ag
 t "overview"       cgi GET ""
 t "protected"      has /tmp/cgi.out 'Protected'
 t "bans"           cgi GET "page=bans"
-t "ban listed"     has /tmp/cgi.out '203.0.113.47'
+t "ban listed"     has /tmp/cgi.out '203.0.113.7'
 t "italian"        env FAKE_LOCALE=it_it sh -c ". $HERE/cgi.sh; cgi GET page=bans"
 t "italian text"   has /tmp/cgi.out 'lang="it"'
-t "confirm page"   cgi GET "page=bans&action=unban&ip=203.0.113.47"
+t "confirm page"   cgi GET "page=bans&action=unban&ip=203.0.113.7"
 t "confirm form"   has /tmp/cgi.out 'name="csrf" value="/cpsess7777777777"'
-t "bad token"      cgi POST "" "page=bans&action=unban&ip=203.0.113.47&confirm=1&csrf=/cpsess0000000000"
+t "bad token"      cgi POST "" "page=bans&action=unban&ip=203.0.113.7&confirm=1&csrf=/cpsess0000000000"
 t "403"            has /tmp/cgi.out '^Status: 403'
-t "unban"          cgi POST "" "page=bans&action=unban&ip=203.0.113.47&confirm=1&csrf=%2Fcpsess7777777777"
+t "unban"          cgi POST "" "page=bans&action=unban&ip=203.0.113.7&confirm=1&csrf=%2Fcpsess7777777777"
 t "303"            has /tmp/cgi.out '^Status: 303'
-t "location"       has /tmp/cgi.out '^Location: index.cgi?page=bans&notice=unban_ok&ip=203.0.113.47'
+t "location"       has /tmp/cgi.out '^Location: index.cgi?page=bans&notice=unban_ok&ip=203.0.113.7'
 (FAKE_ACL=reseller; cgi GET "")
 t "non-root user gets 403" has /tmp/cgi.out '^Status: 403'
 chmod 0777 /opt/infrafence/bin/infrafence-agent

@@ -7,7 +7,7 @@
       [%- IF a.ip %]<tr><th scope="row">[% L.t('col.ip') | html %]</th><td class="ifn-ip">[% a.ip | html %]</td></tr>[% END %]
       [%- IF a.name == 'allow' && a.note.length %]<tr><th scope="row">[% L.t('col.note') | html %]</th><td>[% a.note | html %]</td></tr>[% END %]
       [%- IF a.path %]
-      [%- IF a.site.domain %]<tr><th scope="row">[% L.t('col.domain') | html %]</th><td>[% a.site.domain | html %] <span class="text-muted">([% a.site.account | html %])</span></td></tr>[% END %]
+      [%- IF a.domains.size %]<tr><th scope="row">[% L.t('col.domain') | html %]</th><td>[% FOREACH d IN a.domains %][% d | html %][% UNLESS loop.last %], [% END %][% END %][% IF a.account %] <span class="text-muted">([% a.account | html %])</span>[% END %]</td></tr>[% END %]
       <tr><th scope="row">[% L.t('col.docroot') | html %]</th><td class="ifn-mono">[% a.path | html %]</td></tr>
       [%- END %]
     </table>

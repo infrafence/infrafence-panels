@@ -1,0 +1,1 @@
+{"agent_running":true,"mode":"<script>alert(17)</script>","ok":true,"tools":[{"action":"<img src=x onerror=alert(18)>","action_id":"<b>coexist_x</b>","active":true,"id":"x","kind":"<i>waf</i>","manages_firewall":true,"name":"<svg onload=alert(19)>","rulesets":["<script>alert(20)</script>"],"version":"<b>1</b>"}]}

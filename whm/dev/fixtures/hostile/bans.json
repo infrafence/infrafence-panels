@@ -1,3 +1,0 @@
-{"ok": true, "bans": [
-  {"ip": "203.0.113.5\"><script>alert(5)</script>", "reason": "<img src=x onerror=alert(6)>", "source": "<svg onload=alert(7)>", "created": "<b>x</b>", "expires": "\" autofocus onfocus=\"alert(8)"}
-]}

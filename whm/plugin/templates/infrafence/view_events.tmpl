@@ -11,14 +11,16 @@
     <th scope="col">[% L.t('col.event') | html %]</th>
     <th scope="col">[% L.t('col.severity') | html %]</th>
     <th scope="col">[% L.t('col.source_ip') | html %]</th>
+    <th scope="col">[% L.t('col.reported_by') | html %]</th>
   </tr></thead>
   <tbody>
   [%- FOREACH e IN data.events %]
   <tr>
     <td class="ifn-nowrap"><time datetime="[% e.time | html %]">[% L.time(e.time) | html %]</time></td>
-    <td>[% L.label('event', e.type) | html %][% IF e.detail %]<br><small class="text-muted">[% e.detail | html %]</small>[% END %]</td>
+    <td>[% L.label('event', e.type) | html %]</td>
     <td><span class="label label-[% data.sev_class.${e.severity} || 'default' | html %]">[% L.label('severity', e.severity) | html %]</span></td>
     <td class="ifn-ip">[% IF e.source_ip %][% e.source_ip | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% IF e.source %][% L.label('event_source', e.source) | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
   </tr>
   [%- END %]
   </tbody>

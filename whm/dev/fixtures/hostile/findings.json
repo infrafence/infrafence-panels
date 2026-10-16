@@ -1,3 +1,0 @@
-{"ok": true, "findings": [
-  {"path": "/home/a/<script>alert(9)</script>.php", "kind": "<b>malware</b>", "signature": "</td><script>alert(10)</script>", "severity": "\" onclick=\"alert(11)", "status": "<u>open</u>", "detected": "2026-10-16T09:00:00Z"}
-]}

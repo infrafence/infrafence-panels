@@ -45,17 +45,5 @@
     });
   });
 
-  // Copy the install command.
-  Array.prototype.forEach.call(root.querySelectorAll("[data-ifn-copy]"), function (btn) {
-    btn.addEventListener("click", function () {
-      var src = document.getElementById(btn.getAttribute("data-ifn-copy"));
-      if (!src || !navigator.clipboard) { return; }
-      navigator.clipboard.writeText(src.textContent.trim()).then(function () {
-        var label = btn.textContent;
-        btn.textContent = btn.getAttribute("data-ifn-done");
-        setTimeout(function () { btn.textContent = label; }, 2000);
-      });
-    });
-  });
 })();
 </script>

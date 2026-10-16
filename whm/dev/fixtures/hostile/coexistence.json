@@ -1,3 +1,0 @@
-{"ok": true, "mode": "<script>alert(17)</script>", "tools": [
-  {"id": "x", "name": "<img src=x onerror=alert(18)>", "detected": true, "running": true, "version": "<b>1</b>", "handling": "<script>alert(19)</script>"}
-], "modsecurity": {"installed": true, "engine": "\"><script>alert(20)</script>", "vendors": [{"name": "<script>alert(21)</script>", "version": "1", "enabled": true}]}}

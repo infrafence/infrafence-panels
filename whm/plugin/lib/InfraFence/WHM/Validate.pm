@@ -42,18 +42,18 @@ sub valid_ip {
     return undef;
 }
 
-# Free text note for an allow-list entry. Empty is fine. No control
-# characters, at most NOTE_MAX characters, and it may not start with "-" so it
-# can never be taken for an option.
+# Free text note for an allow-list entry. Empty is fine. Valid UTF-8 without
+# control characters, at most NOTE_MAX bytes (the agent's limit), and it may
+# not start with "-" so it can never be taken for an option.
 sub valid_note {
     my ($s) = @_;
     return '' unless defined $s;
     $s =~ s/\A\s+//;
     $s =~ s/\s+\z//;
     return '' if $s eq '';
+    return undef if length $s > NOTE_MAX;
     my $chars = $s;
     return undef unless utf8::decode($chars);
-    return undef if length $chars > NOTE_MAX;
     return undef if $chars =~ /[\x00-\x1f\x7f\x{80}-\x{9f}\x{2028}\x{2029}]/;
     return undef if substr( $s, 0, 1 ) eq '-';
     return $s;

@@ -7,13 +7,14 @@ is doing and lets you act on it, inside WHM's own interface.
 |---|---|
 | Overview | Protection status, agent version and heartbeat, plan, AutoMode, link to the server in InfraFence |
 | Bans | Active bans; unban, or add the address to the allow list |
-| Allow list | Addresses that are never banned; add and remove |
+| Allow list | Addresses that are never banned, from this server and from the dashboard; add and remove |
 | Findings | Malware and file integrity findings |
 | Events | Recent security events |
-| Coexistence | Other security tools found (CSF/lfd, Imunify360, cPHulk, ModSecurity…) and how InfraFence works with each |
-| Sites | Accounts and document roots with scan coverage; queue a scan |
+| Coexistence | Other security tools found (CSF, lfd, Imunify360, cPHulk, ModSecurity and its rule sets…) and how InfraFence works with each |
+| Sites | Accounts, domains and document roots with malware scan coverage; start a scan |
 
-When the agent is not installed, the plugin shows the one-line install command and a link to infrafence.com.
+When the agent is not installed, the plugin says how to add the server in the InfraFence dashboard
+(Servers > Add server) and links to https://infrafence.com/add-server.
 
 ![Overview](docs/screenshots/en-overview.png)
 
@@ -23,15 +24,19 @@ The plugin is a thin interface. Every screen runs one command as root and reads 
 
     infrafence-agent panel <command> [args] --json
 
-(see [../docs/panel-contract.md](../docs/panel-contract.md)). It holds no InfraFence credentials and never
+(see [../docs/panel-contract.md](../docs/panel-contract.md); every field is described in
+[../docs/panel-json.md](../docs/panel-json.md)). It holds no InfraFence credentials and never
 changes the firewall, ModSecurity or any other tool by itself.
 
 - **Access.** Registered with `acls=all`, and the CGI checks `Whostmgr::ACLS::hasroot()` again.
 - **Changes.** Unban, allow, remove and scan always show a confirmation page first. The change runs only on
   a POST that carries the session's WHM security token. A request from another site is refused.
 - **Input.** IP addresses are validated (IPv4 without leading zeros, IPv6 normalized). Allow-list notes
-  are limited to 200 characters, with no control characters. Scans only accept document roots the agent
-  itself listed.
+  are limited to 200 bytes, with no control characters. Scans only accept document roots the agent
+  itself listed as `scannable` (inside the account's home and owned by it).
+- **Scope.** The agent's replies cover the whole server (all accounts), so the plugin is for root only.
+  An unban from the panel lifts the ban on this server only, for at most 30 days; the plugin says so before
+  and after.
 - **Running the agent.** The command is started from an argv list, never through a shell. It runs with a
   clean environment, no stdin, a 20-second limit and capped output. The binary must be owned by root and
   not writable by anyone else.
@@ -76,8 +81,9 @@ or `apt remove infrafence-whm`. Uninstalling removes only the plugin, never the 
     make package-test   # installs and removes the .rpm and the .deb in containers
     make screenshots    # renders every screen with the mock agent and captures it
 
-`dev/mock-agent` answers the panel commands from `dev/fixtures/` as the real agent will. It also has a
-stopped agent, empty lists, hostile content for escaping tests, and faults (timeouts, invalid output).
+`dev/mock-agent` answers the panel commands like the real agent, from `dev/fixtures/` (copies of the agent's
+own outputs). It also has a stopped agent, monitor mode, empty lists, hostile content for escaping tests, and
+faults (timeouts, invalid output).
 [TESTING.md](TESTING.md) covers the checks on a real cPanel server.
 
 ## Layout
@@ -88,7 +94,7 @@ stopped agent, empty lists, hostile content for escaping tests, and faults (time
     plugin/templates/          WHM templates
     plugin/locale/             en, it, es, fr, de, pt
     plugin/appconfig/          AppConfig file
-    dev/                       mock agent, fixtures, stub master template, renderer
+    dev/                       mock agent, fixtures (agent outputs), scenarios, stub master template, renderer
     t/                         Test::More tests
     test/install/              install test on a fake cPanel tree
     packaging/                 RPM spec, Debian control files, build script

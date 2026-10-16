@@ -21,7 +21,7 @@ use InfraFence::WHM::I18n  ();
 use Exporter 'import';
 our @EXPORT_OK = qw(make_app run_app render mock_agent i18n $ROOT NOW TOKEN);
 
-use constant NOW   => timegm( 0, 0, 10, 16, 9, 2026 );    # 2026-10-16 10:00:00 UTC
+use constant NOW   => timegm( 0, 1, 12, 16, 9, 2026 );    # 2026-10-16 12:01:00 UTC, as dev/mock-agent
 use constant TOKEN => '/cpsess4815162342';
 
 sub mock_agent {

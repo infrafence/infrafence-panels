@@ -13,9 +13,20 @@
 </div>
 [%- END %]
 [%- IF data.notice %]
+[%- n = data.notice %]
 <div class="alert alert-success" role="status">
-  [% L.t('notice.' _ data.notice.code, ip => data.notice.ip, path => data.notice.path) | html %]
+  [% L.t('notice.' _ n.code, ip => n.ip, path => n.path) | html %]
+  [%- IF n.code == 'unban_ok' && n.until %] [% L.t('notice.unban_until', until => L.time(n.until)) | html %][% END %]
+  [%- IF n.banned %] [% L.t('notice.banned') | html %][% END %]
+  [%- IF n.unreported %] [% L.t('notice.unreported') | html %][% END %]
 </div>
+[%- IF n.threat_feed || n.pending || n.own %]
+<div class="alert alert-warning" role="status">
+  [%- IF n.own %][% L.t('notice.own_address', ip => n.ip) | html %][% END %]
+  [%- IF n.threat_feed %][% L.t('notice.threat_feed') | html %][% END %]
+  [%- IF n.pending %] [% L.t('notice.pending') | html %][% END %]
+</div>
+[%- END %]
 [%- END %]
 [%- FOREACH e IN data.errors %]
 <div class="alert alert-danger" role="alert">

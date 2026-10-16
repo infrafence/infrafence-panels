@@ -21,13 +21,15 @@ ok( $a->installed, 'mock is installed' );
 
 my $r = $a->call('status');
 ok( $r->{ok}, 'status ok' );
-is( $r->{agent_version}, '1.8.3', 'version' );
+is( $r->{version}, '1.0.23', 'version' );
+is( $r->{agent_id}, 42, 'agent id' );
+ok( !defined $r->{automode}, 'null stays undef' );
 is( $r->{agent_running}, 1, 'JSON true becomes 1' );
 is_deeply( last_argv(), [qw(panel status --json)], 'argv for status' );
 
 $r = $a->call( 'bans', '--limit', '3' );
 is( scalar @{ $r->{bans} }, 3, 'limit applied' );
-is( $r->{total}, 9, 'total kept' );
+is( $r->{total}, 4, 'total kept' );
 
 # Arguments reach the agent as separate argv entries, untouched by any shell.
 my $weird = q{/home/a b/$(touch /tmp/pwned);`id`|x'"};
@@ -36,11 +38,27 @@ is_deeply( last_argv(), [ 'panel', 'scan', $weird, '--actor', 'root', '--json' ]
 
 $r = $a->call( 'unban', '192.0.2.99', '--actor', 'root' );
 ok( !$r->{ok}, 'error reply' );
-is( $r->{error}, 'not_found', 'error code kept' );
+is( $r->{error}, 'not_banned', 'error code kept' );
+is( $r->{agent_running}, 1, 'agent_running kept' );
 like( $r->{message}, qr/192\.0\.2\.99/, 'message kept' );
 
-$r = mock_agent( scenario => 'stopped' )->call('bans');
+$r = $a->call( 'unban', 'x', '--actor', 'root' );
+is( $r->{error}, 'invalid_ip', 'refused before asking the agent' );
+ok( !exists $r->{agent_running}, 'no agent_running in that case' );
+
+$r = $a->call( 'unban', '203.0.113.7', '--actor', 'root' );
+is( $r->{scope}, 'server', 'unban is local to this server' );
+is( $r->{source}, 'local', 'source of the lifted ban' );
+
+my $stopped = mock_agent( scenario => 'stopped' );
+$r = $stopped->call('bans');
 is( $r->{error}, 'agent_not_running', 'stopped agent' );
+is( $r->{agent_running}, 0, 'agent_running false' );
+$r = $stopped->call('status');
+ok( $r->{ok} && !$r->{agent_running}, 'status still answers' );
+ok( !defined $r->{plan}, 'unknown values are null' );
+ok( $stopped->call('sites')->{ok}, 'sites still answers' );
+ok( $stopped->call('coexistence')->{ok}, 'coexistence still answers' );
 
 $r = mock_agent( fault => 'garbage' )->call('status');
 is( $r->{error}, 'bad_reply', 'non-JSON output' );

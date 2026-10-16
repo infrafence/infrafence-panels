@@ -10,6 +10,8 @@ package InfraFence::WHM::App;
 # Changes follow two steps. A GET (or a POST without confirm=1) only shows a
 # confirmation page. The change runs on a POST with confirm=1 and a csrf field
 # that matches the WHM security token of the session.
+#
+# The agent's replies are described in docs/panel-json.md.
 
 use strict;
 use warnings;
@@ -19,8 +21,8 @@ use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot v
 
 our $VERSION = '0.1.0';
 
-our $SITE_URL        = 'https://infrafence.com';
-our $INSTALL_COMMAND = 'curl -fsSL https://get.infrafence.com | sh';
+our $SITE_URL       = 'https://infrafence.com';
+our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
 
 our @PAGES = qw(overview bans allowlist findings events coexistence sites);
 
@@ -33,10 +35,39 @@ my %ACTIONS = (
     scan     => { pages => [qw(sites)],          target => 'path' },
 );
 
-my @BAN_LIMITS     = qw(500 100 1000);
+# The agent accepts --limit 1-500.
+my @BAN_LIMITS     = qw(500 100 250);
 my @FINDING_LIMITS = qw(200 500);
 my @EVENT_LIMITS   = qw(100 50 250 500);
 my @FINDING_KINDS  = qw(all malware integrity);
+
+# Product names, not translated.
+my %PANEL_NAMES = (
+    cpanel      => 'cPanel & WHM',
+    plesk       => 'Plesk',
+    directadmin => 'DirectAdmin',
+    cyberpanel  => 'CyberPanel',
+    hestiacp    => 'HestiaCP',
+    vestacp     => 'VestaCP',
+    ispconfig   => 'ISPConfig',
+    cloudpanel  => 'CloudPanel',
+    cwp         => 'CWP',
+    aapanel     => 'aaPanel',
+    keyhelp     => 'KeyHelp',
+    froxlor     => 'Froxlor',
+    enhance     => 'Enhance',
+    virtualmin  => 'Virtualmin',
+    webmin      => 'Webmin',
+    coolify     => 'Coolify',
+    dokploy     => 'Dokploy',
+    easypanel   => 'Easypanel',
+    caprover    => 'CapRover',
+    runcloud    => 'RunCloud',
+    gridpane    => 'GridPane',
+    forge       => 'Laravel Forge',
+    ploi        => 'Ploi',
+    bitnami     => 'Bitnami',
+);
 
 sub new {
     my ( $class, %args ) = @_;
@@ -50,7 +81,7 @@ sub new {
 
 sub run {
     my ($self) = @_;
-    my $p    = $self->{request}{params} || {};
+    my $p    = $self->{request}{params};
     my $page = valid_choice( $p->{page}, \@PAGES, 'overview' );
     my $data = $self->_base($page);
 
@@ -69,19 +100,21 @@ sub run {
 sub _base {
     my ( $self, $page ) = @_;
     return {
-        L               => $self->{i18n},
-        page            => $page,
-        pages           => [@PAGES],
-        script          => 'index.cgi',
-        csrf            => $self->{request}{token} || '',
-        version         => $VERSION,
-        site_url        => $SITE_URL,
-        install_command => $INSTALL_COMMAND,
-        errors          => [],
-        sev_class       => {
+        L              => $self->{i18n},
+        page           => $page,
+        pages          => [@PAGES],
+        script         => 'index.cgi',
+        csrf           => $self->{request}{token} || '',
+        version        => $VERSION,
+        site_url       => $SITE_URL,
+        add_server_url => $ADD_SERVER_URL,
+        panel_names    => \%PANEL_NAMES,
+        errors         => [],
+        sev_class      => {
             critical => 'danger',
             high     => 'danger',
             medium   => 'warning',
+            warning  => 'warning',
             low      => 'info',
             info     => 'default',
         },
@@ -121,7 +154,7 @@ sub _action {
 
     my $spec = $ACTIONS{$name};
     unless ($spec) {
-        _error( $data, 'bad_request' );
+        _error( $data, 'unknown_action' );
         return $self->_page( $page, $data, 400 );
     }
     $page = valid_choice( $page, $spec->{pages}, $spec->{pages}[0] );
@@ -150,14 +183,21 @@ sub _action {
             push @{ $data->{errors} }, $sites;
             return $self->_page( $page, $data );
         }
-        my @list = grep { ref $_ eq 'HASH' } @{ $sites->{sites} || [] };
-        my $path = valid_docroot( $p->{path}, [ map { $_->{docroot} } @list ] );
+        my @list = grep { ref $_ eq 'HASH' } @{ ref $sites->{sites} eq 'ARRAY' ? $sites->{sites} : [] };
+        my $path = valid_docroot( $p->{path}, [ map { $_->{document_root} } @list ] );
         unless ( defined $path ) {
-            _error( $data, 'unknown_path' );
+            _error( $data, 'not_a_document_root' );
             return $self->_page( $page, $data, 400 );
         }
-        $act{path} = $path;
-        ( $act{site} ) = grep { defined $_->{docroot} && $_->{docroot} eq $path } @list;
+        my @here = grep { defined $_->{document_root} && $_->{document_root} eq $path } @list;
+        # The agent says in advance which document roots it will accept.
+        unless ( grep { $_->{scannable} } @here ) {
+            _error( $data, 'not_scannable' );
+            return $self->_page( $page, $data, 400 );
+        }
+        $act{path}        = $path;
+        $act{domains}     = [ map { $_->{domain} } @here ];
+        ( $act{account} ) = map { $_->{account} } @here;
     }
     $data->{act} = \%act;
 
@@ -170,7 +210,7 @@ sub _action {
     }
     my $actor = valid_actor( $self->{request}{actor} );
     unless ( defined $actor ) {
-        _error( $data, 'bad_actor' );
+        _error( $data, 'invalid_actor' );
         return $self->_view( 'confirm', $data, 403 );
     }
 
@@ -180,13 +220,39 @@ sub _action {
 
     my $reply = $self->{agent}->call( $name, @args );
     if ( $reply->{ok} ) {
-        my $target = $name eq 'scan' ? 'path=' . uri_escape( $act{path} ) : 'ip=' . uri_escape( $act{ip} );
-        return { code => 303, location => "index.cgi?page=$page&notice=${name}_ok&$target" };
+        return { code => 303, location => "index.cgi?page=$page&" . _notice_query( $name, \%act, $reply ) };
     }
 
     $reply->{action} = $name;
     push @{ $data->{errors} }, $reply;
     return $self->_page( $page, $data );
+}
+
+# What the success message needs from the agent's reply, as query parameters.
+sub _notice_query {
+    my ( $name, $act, $r ) = @_;
+    my $code = $name eq 'allow' && $r->{already} ? 'allow_already' : "${name}_ok";
+    my @q = ("notice=$code");
+    if ( $name eq 'scan' ) {
+        my $path = defined $r->{path} && length $r->{path} ? $r->{path} : $act->{path};
+        push @q, 'path=' . uri_escape($path);
+    }
+    else {
+        my $ip = valid_ip( $r->{ip} );
+        push @q, 'ip=' . uri_escape( defined $ip ? $ip : $act->{ip} );
+    }
+    push @q, 'until=' . uri_escape( $r->{lifted_until} ) if _iso( $r->{lifted_until} );
+    push @q, 'own=1'        if $r->{own_address};
+    push @q, 'unreported=1' if exists $r->{reported} && !$r->{reported};
+    push @q, 'threat_feed=1' if $r->{threat_feed};
+    push @q, 'pending=1'     if $r->{firewall_pending};
+    push @q, 'banned=1'      if $r->{banned};
+    return join '&', @q;
+}
+
+sub _iso {
+    my ($s) = @_;
+    return defined $s && $s =~ /\A\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,9})?)?(?:Z|[+-]\d\d:?\d\d)\z/;
 }
 
 sub _is_post {
@@ -216,7 +282,7 @@ sub _csrf_ok {
 sub _notice {
     my ( $self, $data ) = @_;
     my $p    = $self->{request}{params};
-    my $code = valid_choice( $p->{notice}, [qw(unban_ok allow_ok disallow_ok scan_ok)], undef );
+    my $code = valid_choice( $p->{notice}, [qw(unban_ok allow_ok allow_already disallow_ok scan_ok)], undef );
     return unless $code;
     my %n = ( code => $code );
     if ( $code eq 'scan_ok' ) {
@@ -228,6 +294,10 @@ sub _notice {
         $n{ip} = valid_ip( $p->{ip} );
         return unless defined $n{ip};
     }
+    for (qw(unreported threat_feed pending banned own)) {
+        $n{$_} = 1 if defined $p->{$_} && $p->{$_} eq '1';
+    }
+    $n{until} = $p->{until} if _iso( $p->{until} );
     $data->{notice} = \%n;
 }
 
@@ -243,36 +313,48 @@ sub _list {
     return [];
 }
 
+# AutoMode is passed through from the dashboard as an object whose fields are
+# not fixed yet. Show on/off when it says so, otherwise its state as sent.
+sub _automode {
+    my ($am) = @_;
+    return undef unless ref $am eq 'HASH';
+    return $am->{enabled} ? 'on' : 'off' if exists $am->{enabled} && !ref $am->{enabled};
+    for my $k (qw(state mode status)) {
+        return $am->{$k} if defined $am->{$k} && !ref $am->{$k} && length $am->{$k};
+    }
+    return 'unknown';
+}
+
 sub _page_overview {
     my ( $self, $data ) = @_;
     my $s = $data->{status};
     return unless $s->{ok};
 
     $data->{protection} =
-        !$s->{agent_running} ? 'stopped'
-      : !$s->{connected}     ? 'offline'
-      :                        'protected';
+        !$s->{agent_running}  ? 'stopped'
+      : $s->{suspended}       ? 'suspended'
+      : !$s->{connected}      ? 'offline'
+      : $s->{monitor_mode}    ? 'monitor'
+      :                         'protected';
+    $data->{automode} = _automode( $s->{automode} );
 
     return unless _running($data);
     my $agent = $self->{agent};
     my %c;
 
-    my $bans = $agent->call( 'bans', '--limit', '1000' );
-    if ( $bans->{ok} ) {
-        $c{bans} = defined $bans->{total} ? $bans->{total} : scalar @{ $bans->{bans} || [] };
-    }
+    my $bans = $agent->call( 'bans', '--limit', '1' );
+    $c{bans} = $bans->{total} if $bans->{ok};
 
     my $findings = $agent->call( 'findings', '--limit', '500' );
     if ( $findings->{ok} ) {
-        $c{findings} = scalar grep { ref $_ eq 'HASH' && ( $_->{status} || '' ) eq 'open' } @{ $findings->{findings} || [] };
+        $c{findings} = scalar grep { ref $_ eq 'HASH' && ( $_->{status} || '' ) eq 'detected' } @{ $findings->{findings} || [] };
     }
 
-    my $events = $agent->call( 'events', '--limit', '500' );
+    my $events = $agent->call( 'events', '--since', '24h', '--limit', '500' );
     if ( $events->{ok} ) {
-        my $L   = $self->{i18n};
-        my @all = grep { ref $_ eq 'HASH' } @{ $events->{events} || [] };
-        $c{events}      = scalar grep { my $a = $L->age( $_->{time} ); defined $a && $a <= 86400 } @all;
-        $c{events_more} = @all >= 500 ? 1 : 0;
+        my $n = scalar @{ $events->{events} || [] };
+        $c{events}      = $n;
+        $c{events_more} = $n >= 500 ? 1 : 0;
     }
     $data->{counts} = \%c;
 }
@@ -283,15 +365,19 @@ sub _page_bans {
     $data->{limit}  = $limit;
     $data->{limits} = [ sort { $a <=> $b } @BAN_LIMITS ];
     my $reply = $self->{agent}->call( 'bans', '--limit', $limit );
-    $data->{bans}  = $self->_list( $data, $reply, 'bans' );
-    $data->{total} = $reply->{ok} && defined $reply->{total} ? $reply->{total} : scalar @{ $data->{bans} };
+    $data->{bans}         = $self->_list( $data, $reply, 'bans' );
+    $data->{total}        = $reply->{ok} && defined $reply->{total} ? $reply->{total} : scalar @{ $data->{bans} };
+    $data->{monitor_mode} = $reply->{ok} && $reply->{monitor_mode} ? 1 : 0;
 }
 
 sub _page_allowlist {
     my ( $self, $data ) = @_;
     my $reply = $self->{agent}->call('allowlist');
-    $data->{entries} = $self->_list( $data, $reply, 'entries' );
+    $data->{entries} = $self->_list( $data, $reply, 'allowlist' );
     $data->{form} ||= {};
+    # Pre-fill the form from ?ip=, but not with the address a notice or a
+    # failed action is about.
+    return if $data->{notice} || $self->{request}{params}{action};
     my $ip = valid_ip( $self->{request}{params}{ip} );
     $data->{form}{ip} = $ip if defined $ip && !defined $data->{form}{ip};
 }
@@ -301,14 +387,17 @@ sub _page_findings {
     my $p     = $self->{request}{params};
     my $limit = valid_choice( $p->{limit}, \@FINDING_LIMITS, $FINDING_LIMITS[0] );
     my $kind  = valid_choice( $p->{kind}, \@FINDING_KINDS, 'all' );
-    $data->{limit} = $limit;
-    $data->{kind}  = $kind;
-    $data->{kinds} = [@FINDING_KINDS];
+    $data->{limit}  = $limit;
+    $data->{limits} = [ sort { $a <=> $b } @FINDING_LIMITS ];
+    $data->{kind}   = $kind;
+    $data->{kinds}  = [@FINDING_KINDS];
 
-    my $all = $self->_list( $data, $self->{agent}->call( 'findings', '--limit', $limit ), 'findings' );
+    my $reply = $self->{agent}->call( 'findings', '--limit', $limit );
+    my $all   = $self->_list( $data, $reply, 'findings' );
     my %count = ( all => scalar @$all );
     $count{ $_->{kind} || '' }++ for @$all;
     $data->{kind_count} = \%count;
+    $data->{total}      = $reply->{ok} && defined $reply->{total} ? $reply->{total} : scalar @$all;
     $data->{findings}   = $kind eq 'all' ? $all : [ grep { ( $_->{kind} || '' ) eq $kind } @$all ];
 }
 
@@ -323,28 +412,26 @@ sub _page_events {
 sub _page_coexistence {
     my ( $self, $data ) = @_;
     my $reply = $self->{agent}->call('coexistence');
-    my $tools = $self->_list( $data, $reply, 'tools' );
-    return unless $reply->{ok};
-    $data->{mode}        = $reply->{mode};
-    $data->{detected}    = [ grep { $_->{detected} } @$tools ];
-    $data->{not_found}   = [ grep { !$_->{detected} } @$tools ];
-    $data->{modsecurity} = ref $reply->{modsecurity} eq 'HASH' ? $reply->{modsecurity} : undef;
+    $data->{tools} = $self->_list( $data, $reply, 'tools' );
+    $data->{mode}  = $reply->{mode} if $reply->{ok};
 }
 
 sub _page_sites {
     my ( $self, $data ) = @_;
-    my $sites = $self->_list( $data, $self->{agent}->call('sites'), 'sites' );
+    my $reply = $self->{agent}->call('sites');
+    my $sites = $self->_list( $data, $reply, 'sites' );
     my ( %by, @order );
     for my $s (@$sites) {
         my $acct = defined $s->{account} ? $s->{account} : '';
         push @order, $acct unless $by{$acct};
         push @{ $by{$acct} }, $s;
     }
-    my %cov;
-    $cov{ $_->{coverage} || 'none' }++ for @$sites;
-    $data->{accounts} = [ map { { account => $_, owner => $by{$_}[0]{owner}, sites => $by{$_} } } sort @order ];
-    $data->{coverage_count} = \%cov;
-    $data->{site_count}     = scalar @$sites;
+    $data->{accounts}             = [ map { { account => $_, sites => $by{$_} } } sort @order ];
+    $data->{site_count}           = scalar @$sites;
+    $data->{account_count}        = scalar grep { length } @order;
+    $data->{covered_count}        = scalar grep { $_->{scan_covered} } @$sites;
+    $data->{malware_scan_enabled} = $reply->{ok} ? $reply->{malware_scan_enabled} : undef;
+    $data->{control_panel}        = $reply->{ok} ? $reply->{control_panel} : undef;
 }
 
 1;

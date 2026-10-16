@@ -31,19 +31,22 @@
     <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title">[% L.t('overview.agent') | html %]</h3></div>
       <table class="table ifn-dl">
-        <tr><th scope="row">[% L.t('overview.version') | html %]</th><td>[% s.agent_version | html %]</td></tr>
+        <tr><th scope="row">[% L.t('overview.version') | html %]</th><td>[% s.version | html %]</td></tr>
         <tr><th scope="row">[% L.t('overview.service') | html %]</th><td>
           [% IF s.agent_running %]<span class="label label-success">[% L.t('overview.running') | html %]</span>
           [% ELSE %]<span class="label label-danger">[% L.t('overview.not_running') | html %]</span>[% END %]</td></tr>
         <tr><th scope="row">[% L.t('overview.heartbeat') | html %]</th><td>
           [% IF s.last_heartbeat %]
             <time datetime="[% s.last_heartbeat | html %]" title="[% L.time(s.last_heartbeat) | html %]">[% L.ago(s.last_heartbeat) | html %]</time>
-            [% IF hb_age.defined && hb_age > 600 %]<span class="label label-warning">[% L.t('overview.heartbeat_stale') | html %]</span>[% END %]
+            [% IF hb_age.defined && hb_age > 180 %]<span class="label label-warning">[% L.t('overview.heartbeat_stale') | html %]</span>[% END %]
           [% ELSE %]<span class="text-muted">[% L.t('overview.never') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.agent_id') | html %]</th><td><code>[% s.agent_id | html %]</code></td></tr>
-        [%- IF s.hostname %]
-        <tr><th scope="row">[% L.t('overview.hostname') | html %]</th><td>[% s.hostname | html %]</td></tr>
-        [%- END %]
+        <tr><th scope="row">[% L.t('overview.sync') | html %]</th><td>
+          [% IF s.last_sync %]<time datetime="[% s.last_sync | html %]" title="[% L.time(s.last_sync) | html %]">[% L.ago(s.last_sync) | html %]</time>
+          [% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</td></tr>
+        <tr><th scope="row">[% L.t('overview.agent_id') | html %]</th><td>
+          [% IF s.agent_id.defined %]<code>[% s.agent_id | html %]</code>[% ELSE %]<span class="text-muted">[% L.t('overview.not_registered') | html %]</span>[% END %]</td></tr>
+        <tr><th scope="row">[% L.t('overview.panel') | html %]</th><td>
+          [% IF s.control_panel %][% data.panel_names.${s.control_panel} || s.control_panel | html %][% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</td></tr>
       </table>
     </div>
   </div>
@@ -54,10 +57,16 @@
         <tr><th scope="row">[% L.t('overview.connection') | html %]</th><td>
           [% IF s.connected %]<span class="label label-success">[% L.t('overview.connected') | html %]</span>
           [% ELSE %]<span class="label label-warning">[% L.t('overview.disconnected') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.plan') | html %]</th><td>[% L.label('plan', s.plan) | html %]</td></tr>
+        <tr><th scope="row">[% L.t('overview.plan') | html %]</th><td>
+          [% IF s.plan %][% L.label('plan', s.plan) | html %][% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</td></tr>
+        <tr><th scope="row">[% L.t('overview.protection_mode') | html %]</th><td>
+          [% IF s.monitor_mode.defined && s.monitor_mode %]<span class="label label-warning">[% L.t('overview.mode.monitor') | html %]</span>
+          [% ELSIF s.monitor_mode.defined %][% L.t('overview.mode.blocking') | html %]
+          [% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]
+          [% IF s.suspended %] <span class="label label-danger">[% L.t('overview.suspended') | html %]</span>[% END %]</td></tr>
         <tr><th scope="row">[% L.t('overview.automode') | html %]</th><td>
-          [% am = s.automode %]
-          <span class="label label-[% IF am == 'on' %]info[% ELSE %]default[% END %]">[% L.label('automode', am) | html %]</span>
+          [% IF data.automode.defined %]<span class="label label-[% IF data.automode == 'on' %]info[% ELSE %]default[% END %]">[% L.label('automode', data.automode) | html %]</span>
+          [% ELSE %]<span class="text-muted">[% L.t('overview.automode.none') | html %]</span>[% END %]
           <span class="help-block ifn-help">[% L.t('overview.automode.help') | html %]</span></td></tr>
       </table>
     </div>

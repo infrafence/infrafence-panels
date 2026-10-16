@@ -1,0 +1,1 @@
+{"agent_running":true,"events":[{"severity":"critical","source":"<iframe src=//evil.example>","source_ip":"<img src=x onerror=alert(15)>","time":"2026-10-16T11:00:00Z","type":"<script>alert(16)</script>"}],"ok":true}
