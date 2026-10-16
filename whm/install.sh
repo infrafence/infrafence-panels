@@ -96,7 +96,7 @@ preflight() {
     [ -x "$CPANEL/bin/register_appconfig" ] && ok_check "register_appconfig available" \
         || fail_check "$CPANEL/bin/register_appconfig not found"
 
-    if [ -x "$CPANEL_PERL" ] && "$CPANEL_PERL" -MTemplate -MJSON::PP -MIO::Select -MTime::Local -e 1 >/dev/null 2>&1; then
+    if [ -x "$CPANEL_PERL" ] && "$CPANEL_PERL" -MTemplate -MJSON::PP -MIO::Select -MTime::Local -MTime::HiRes -MCwd -e 1 >/dev/null 2>&1; then
         ok_check "cPanel Perl with Template Toolkit"
     else
         fail_check "$CPANEL_PERL with Template Toolkit and JSON::PP is required"

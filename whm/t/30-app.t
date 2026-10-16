@@ -4,6 +4,7 @@ use Test::More;
 use FindBin;
 use File::Temp qw(tempdir);
 use JSON::PP ();
+use Time::HiRes ();
 use lib "$FindBin::Bin/lib";
 use IFTest qw(run_app mock_agent TOKEN);
 
@@ -125,6 +126,15 @@ is( $res->{data}{account_count}, 2, 'account count' );
 is( run_app( params => { page => 'sites' }, scenario => 'restricted' )->{data}{account_count}, 2, 'sites without account not counted' );
 is( $res->{data}{covered_count}, 3, 'covered count' );
 is( $res->{data}{malware_scan_enabled}, 1, 'scheduled scans on' );
+
+# The Overview's four agent calls share one deadline.
+{
+    local $InfraFence::WHM::App::OVERVIEW_DEADLINE = 2;
+    my $t0 = Time::HiRes::time();
+    $res = run_app( agent => mock_agent( fault => 'timeout', timeout => 10 ) );
+    cmp_ok( Time::HiRes::time() - $t0, '<', 4, 'overview bounded by the shared deadline' );
+    is( $res->{data}{status}{error}, 'timeout', 'status timed out' );
+}
 
 # --- confirmation step
 

@@ -5,6 +5,6 @@ FROM ${BASE}
 RUN dnf -y install epel-release \
  && (dnf config-manager --set-enabled crb || dnf config-manager --set-enabled powertools || true) \
  && dnf -y install perl-interpreter perl-Test-Simple perl-Test-Harness perl-JSON-PP perl-Time-Local \
-      perl-Socket perl-IO perl-File-Temp perl-Template-Toolkit procps-ng \
+      perl-Socket perl-IO perl-File-Temp perl-Time-HiRes perl-PathTools perl-Template-Toolkit procps-ng \
  && dnf clean all
 WORKDIR /src/whm

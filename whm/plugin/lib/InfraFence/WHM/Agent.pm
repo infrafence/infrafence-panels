@@ -10,9 +10,11 @@ package InfraFence::WHM::Agent;
 use strict;
 use warnings;
 
+use Cwd ();
 use IO::Select ();
 use JSON::PP ();
 use POSIX ();
+use Time::HiRes ();
 
 use InfraFence::WHM::Util qw(to_bytes);
 
@@ -29,8 +31,9 @@ use constant SAFE_PATH   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
 # Options:
 #   bin           path to the agent; found in @SEARCH_PATH when not given
 #   timeout       seconds per command (default 20)
-#   strict_owner  refuse a binary that is not owned by root or that others can
-#                 write to (default on; the tests turn it off)
+#   strict_owner  refuse a binary unless it, and every directory from / down to
+#                 it, is owned by root and not writable by group or others
+#                 (default on; the tests turn it off)
 #   env           extra environment for the child (tests only)
 sub new {
     my ( $class, %args ) = @_;
@@ -59,13 +62,39 @@ sub _find {
     return undef;
 }
 
-sub _trusted {
+# The binary with every symlink resolved; that is the file checked and run.
+sub _resolve {
     my ($self) = @_;
+    return undef unless defined $self->{bin};
+    my $real = Cwd::realpath( $self->{bin} );
+    return undef unless defined $real && substr( $real, 0, 1 ) eq '/' && -f $real && -x _;
+    return $real;
+}
+
+# Only root can change what is run: the file and each directory above it are
+# owned by root and not writable by group or others (so a world-writable
+# directory such as /tmp, even with the sticky bit, is refused).
+sub _trusted {
+    my ( $self, $real ) = @_;
     return 1 unless $self->{strict_owner};
-    my @st = stat $self->{bin} or return 0;
-    return 0 if $st[4] != 0;      # owned by root
-    return 0 if $st[2] & 022;     # not writable by group or others
+    my @parts = grep { length } split m{/}, $real;
+    my @paths = ('/');
+    push @paths, '/' . join '/', @parts[ 0 .. $_ ] for 0 .. $#parts;
+    for my $p (@paths) {
+        my @st = lstat $p or return 0;
+        return 0 if -l _;            # realpath() left no symlinks; one now is a race
+        return 0 if $st[4] != 0;     # owned by root
+        return 0 if $st[2] & 022;    # not writable by group or others
+    }
     return 1;
+}
+
+# All the calls made until deadline(undef) share one time limit (an epoch,
+# fractional seconds allowed), on top of each call's own timeout.
+sub deadline {
+    my ( $self, $at ) = @_;
+    $self->{deadline} = $at;
+    return;
 }
 
 sub _err {
@@ -76,9 +105,12 @@ sub _err {
 sub call {
     my ( $self, $command, @args ) = @_;
     return _err('not_installed') unless $self->installed;
-    return _err('agent_untrusted') unless $self->_trusted;
+    my $real = $self->_resolve;
+    return _err('not_installed') unless defined $real;
+    return _err('agent_untrusted') unless $self->_trusted($real);
 
-    my @argv = ( $self->{bin}, 'panel', $command, @args, '--json' );
+    # Run the checked file itself, not the name that led to it.
+    my @argv = ( $real, 'panel', $command, @args, '--json' );
     my ( $out, $exit, $failure ) = $self->_run(@argv);
     return _err($failure) if $failure;
 
@@ -102,6 +134,10 @@ sub _run {
     local $SIG{CHLD} = 'DEFAULT';
     local $SIG{PIPE} = 'IGNORE';
 
+    my $deadline = Time::HiRes::time() + $self->{timeout};
+    $deadline = $self->{deadline} if defined $self->{deadline} && $self->{deadline} < $deadline;
+    return ( '', -1, 'timeout' ) if $deadline <= Time::HiRes::time();
+
     pipe( my $r, my $w ) or return ( '', -1, 'exec_failed' );
     my $pid = fork;
     return ( '', -1, 'exec_failed' ) unless defined $pid;
@@ -117,13 +153,12 @@ sub _run {
     }
 
     close $w;
-    my $buf      = '';
-    my $deadline = time + $self->{timeout};
-    my $sel      = IO::Select->new($r);
+    my $buf = '';
+    my $sel = IO::Select->new($r);
     my $failure;
 
     while (1) {
-        my $left = $deadline - time;
+        my $left = $deadline - Time::HiRes::time();
         if ( $left <= 0 ) { $failure = 'timeout'; last }
         next unless $sel->can_read($left);
         my $n = sysread $r, $buf, 65536, length $buf;

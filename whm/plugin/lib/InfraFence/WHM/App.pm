@@ -16,6 +16,8 @@ package InfraFence::WHM::App;
 use strict;
 use warnings;
 
+use Time::HiRes ();
+
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice);
 
@@ -25,6 +27,9 @@ our $SITE_URL       = 'https://infrafence.com';
 our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
 
 our @PAGES = qw(overview bans allowlist findings events coexistence sites);
+
+# Seconds for all the agent calls of the Overview together (it makes four).
+our $OVERVIEW_DEADLINE = 25;
 
 # Where each action may be started from (the first one is the default) and
 # what it acts on.
@@ -91,14 +96,20 @@ sub run {
 
     return $self->_view( 'not_installed', $data ) unless $self->{agent}->installed;
 
-    $data->{status} = $self->{agent}->call('status');
+    my $agent    = $self->{agent};
+    my $overview = $page eq 'overview' && !( defined $p->{action} && length $p->{action} );
+    $agent->deadline( Time::HiRes::time() + $OVERVIEW_DEADLINE ) if $overview && $agent->can('deadline');
+
+    $data->{status} = $agent->call('status');
 
     if ( defined $p->{action} && length $p->{action} ) {
         return $self->_action( $p->{action}, $page, $data );
     }
 
     $self->_notice($data);
-    return $self->_page( $page, $data );
+    my $res = $self->_page( $page, $data );
+    $agent->deadline(undef) if $overview && $agent->can('deadline');
+    return $res;
 }
 
 sub _base {

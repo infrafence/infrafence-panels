@@ -3,6 +3,7 @@ use warnings;
 use Test::More;
 use FindBin;
 use File::Temp qw(tempdir);
+use Time::HiRes ();
 use JSON::PP ();
 use lib "$FindBin::Bin/lib";
 use IFTest qw(mock_agent $ROOT);
@@ -84,24 +85,73 @@ ok( !mock_agent( bin => "$dir/nope" )->installed, 'nonexistent path' );
 my $found = InfraFence::WHM::Agent->new( search => [ "$dir/nope", "$ROOT/dev/mock-agent" ] );
 is( $found->bin, "$ROOT/dev/mock-agent", 'search path' );
 
-# Strict ownership: the mock belongs to the test user, so it is refused unless
-# the test runs as root on a root-owned copy.
+# Strict ownership: the binary and every directory above it must be owned by
+# root and not writable by group or others. Only testable as root.
 if ( $> != 0 ) {
     is( mock_agent( strict_owner => 1 )->call('status')->{error}, 'agent_untrusted', 'non-root owner refused' );
 }
 else {
-    my $copy = "$dir/agent";
-    system( 'cp', "$ROOT/dev/mock-agent", $copy ) == 0 or die;
-    chown 0, 0, $copy;
-    chmod 0755, $copy;
-    my $env = { MOCK_AGENT_FIXTURES => "$ROOT/dev/fixtures" };
-    my $ok  = InfraFence::WHM::Agent->new( bin => $copy, env => $env );
-    ok( $ok->call('status')->{ok}, 'root-owned binary accepted' );
-    chmod 0777, $copy;
-    is( $ok->call('status')->{error}, 'agent_untrusted', 'world-writable binary refused' );
-    chown 1, 1, $copy;
-    chmod 0755, $copy;
-    is( $ok->call('status')->{error}, 'agent_untrusted', 'non-root owner refused' );
+    require File::Path;
+    my $base = '/opt/ifn-agent-test';
+    File::Path::rmtree($base);
+    File::Path::make_path( "$base/bin", { mode => 0755 } );
+    chmod 0755, '/opt', $base, "$base/bin";
+    my $bin = "$base/bin/infrafence-agent";
+    open my $fh, '>', $bin or die $!;
+    print {$fh} qq{#!/bin/sh\nprintf '{"ok":true,"self":"%s"}' "\$0"\n};
+    close $fh;
+    chmod 0755, $bin;
+    my $agent = sub { InfraFence::WHM::Agent->new( bin => $_[0] || $bin ) };
+
+    ok( $agent->()->call('status')->{ok}, 'root-owned binary in root-owned directories accepted' );
+
+    chmod 0777, $bin;
+    is( $agent->()->call('status')->{error}, 'agent_untrusted', 'world-writable binary refused' );
+    chmod 0775, $bin;
+    is( $agent->()->call('status')->{error}, 'agent_untrusted', 'group-writable binary refused' );
+    chmod 0755, $bin;
+    chown 1, 1, $bin;
+    is( $agent->()->call('status')->{error}, 'agent_untrusted', 'binary not owned by root refused' );
+    chown 0, 0, $bin;
+
+    for my $dir ( $base, "$base/bin" ) {
+        chmod 0777, $dir;
+        is( $agent->()->call('status')->{error}, 'agent_untrusted', "world-writable $dir refused" );
+        chmod 0755, $dir;
+        chown 1, 1, $dir;
+        is( $agent->()->call('status')->{error}, 'agent_untrusted', "$dir not owned by root refused" );
+        chown 0, 0, $dir;
+    }
+    ok( $agent->()->call('status')->{ok}, 'accepted again once fixed' );
+
+    # A symlink is resolved: what matters is the file it points to.
+    my $loose = File::Temp::tempdir( CLEANUP => 1 );    # under /tmp (mode 1777)
+    system( 'cp', $bin, "$loose/agent" ) == 0 or die;
+    chmod 0755, "$loose/agent";
+    symlink "$loose/agent", "$base/bin/link" or die $!;
+    is( $agent->("$base/bin/link")->call('status')->{error}, 'agent_untrusted', 'symlink to a file under /tmp refused' );
+    unlink "$base/bin/link";
+    is( $agent->("$loose/agent")->call('status')->{error}, 'agent_untrusted', 'binary under sticky /tmp refused' );
+
+    symlink $bin, "$base/link" or die $!;
+    my $r = $agent->("$base/link")->call('status');
+    ok( $r->{ok}, 'symlink to a trusted file accepted' );
+    is( $r->{self}, $bin, 'the resolved file is the one executed' );
+
+    symlink "$base/nowhere", "$base/dangling" or die $!;
+    is( $agent->("$base/dangling")->call('status')->{error}, 'not_installed', 'dangling symlink' );
+    File::Path::rmtree($base);
+}
+
+# One deadline shared by several calls.
+{
+    my $slow = mock_agent( fault => 'timeout', timeout => 10 );
+    my $t0   = Time::HiRes::time();
+    $slow->deadline( $t0 + 2 );
+    is( $slow->call('status')->{error}, 'timeout', 'deadline ends the first call' );
+    is( $slow->call('bans')->{error},   'timeout', 'later calls fail at once' );
+    cmp_ok( Time::HiRes::time() - $t0, '<', 4, 'both within the shared deadline' );
+    $slow->deadline(undef);
 }
 
 # The child gets a clean environment.
