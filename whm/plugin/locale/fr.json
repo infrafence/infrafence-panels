@@ -24,7 +24,7 @@
   "notice.allow_ok": "{ip} a été ajoutée à la liste d'autorisation.",
   "notice.allow_already": "{ip} était déjà autorisée. Rien n'a été modifié.",
   "notice.disallow_ok": "{ip} a été retirée de la liste d'autorisation.",
-  "notice.scan_ok": "Une analyse antimalware de {path} a démarré. Les résultats apparaîtront dans Détections et dans le tableau de bord.",
+  "notice.scan_ok": "Une analyse antimalware du site a démarré. Les résultats apparaîtront dans Détections et dans le tableau de bord.",
   "notice.banned": "L'adresse fait aussi l'objet d'un blocage : la liste d'autorisation prévaut, son trafic n'est donc pas bloqué, mais le blocage reste listé.",
   "notice.unreported": "Le tableau de bord n'a pas pu être joint ; il sera informé après la prochaine synchronisation.",
   "notice.threat_feed": "L'adresse figure aussi dans une liste de menaces bloquée par ce serveur ; elle peut donc encore être refusée.",

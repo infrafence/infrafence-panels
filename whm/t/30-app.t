@@ -227,7 +227,7 @@ is( $res->{location}, 'index.cgi?page=allowlist&notice=disallow_ok&ip=198.51.100
 is_deeply( mutating(), [ [qw(panel disallow 198.51.100.4 --actor root --json)] ], 'disallow argv' );
 
 $res = run_app( method => 'POST', params => { action => 'scan', path => '/home/alice/public_html/blog', confirm => 1, csrf => TOKEN }, log => $log );
-is( $res->{location}, 'index.cgi?page=sites&notice=scan_ok&path=%2Fhome%2Falice%2Fpublic_html%2Fblog', 'scan redirect' );
+is( $res->{location}, 'index.cgi?page=sites&notice=scan_ok', 'scan redirect carries no path' );
 is_deeply( mutating(), [ [qw(panel scan /home/alice/public_html/blog --actor root --json)] ], 'scan argv' );
 
 is( InfraFence::WHM::App::_notice_query( 'unban', { ip => '192.0.2.1' },
@@ -236,7 +236,7 @@ is( InfraFence::WHM::App::_notice_query( 'unban', { ip => '192.0.2.1' },
 is( InfraFence::WHM::App::_notice_query( 'unban', { ip => '192.0.2.1' }, { ok => 1, ip => '192.0.2.1', lifted_until => '<b>' } ),
     'notice=unban_ok&ip=192.0.2.1', 'invalid lifted_until dropped' );
 is( InfraFence::WHM::App::_notice_query( 'scan', { path => '/home/a/www' }, { ok => 1, path => '/home/a/real' } ),
-    'notice=scan_ok&path=%2Fhome%2Fa%2Freal', 'scan notice shows the resolved path' );
+    'notice=scan_ok', 'scan notice: no path' );
 
 # --- validation happens before the agent is asked to change anything
 
@@ -295,5 +295,33 @@ $res = run_app( params => { page => 'bans', notice => 'unban_ok', ip => '<script
 ok( !$res->{data}{notice}, 'notice with bad ip dropped' );
 $res = run_app( params => { page => 'bans', notice => 'pwned', ip => '203.0.113.7' } );
 ok( !$res->{data}{notice}, 'unknown notice dropped' );
+$res = run_app( params => { page => 'sites', notice => 'scan_ok', path => '/home/x/<b>anything</b>', msg => 'free text' } );
+is_deeply( $res->{data}{notice}, { code => 'scan_ok' }, 'scan notice takes nothing from the query' );
+$res = run_app( params => { page => 'bans', notice => 'unban_ok', ip => '2001:DB8:0::1' } );
+is( $res->{data}{notice}{ip}, '2001:db8::1', 'address re-derived (canonical), not echoed' );
+
+# dashboard_url is only linked when it is a plain https URL.
+for my $case (
+    [ 'https://app.infrafence.com/servers/42', 1 ],
+    [ 'https://app.infrafence.com:8443/servers/42?tab=bans&x=1', 1 ],
+    [ 'javascript:alert(1)', 0 ],
+    [ 'http://app.infrafence.com/servers/42', 0 ],
+    [ 'https://user:pw@evil.example/', 0 ],
+    [ 'https://app.infrafence.com@evil.example/', 0 ],
+    [ 'https://app.infrafence.com/a b', 0 ],
+    [ 'https://app.infrafence.com/"onmouseover="x', 0 ],
+    [ 'https://app.infrafence.com/\\evil', 0 ],
+    [ "https://app.infrafence.com/\nx", 0 ],
+    [ 'https://[::1]/', 0 ],
+    [ 'https://-bad.example/', 0 ],
+    [ 'https://app.infrafence.com:99999/', 0 ],
+    [ 'https:///servers', 0 ],
+    [ undef, 0 ],
+  )
+{
+    my ( $url, $ok ) = @$case;
+    $res = run_app( agent => StatusAgent->new( dashboard_url => $url ) );
+    is( $res->{data}{dashboard_url}, $ok ? $url : undef, 'dashboard_url ' . ( defined $url ? $url : 'undef' ) . ( $ok ? ' linked' : ' refused' ) );
+}
 
 done_testing;

@@ -9,6 +9,7 @@
 | `make packages` | Builds `dist/` (tar.gz, noarch RPM, `.deb`) in Docker. |
 | `make package-test` | Installs, upgrades and removes the RPM on AlmaLinux 8/9/10 and the `.deb` on Ubuntu 24.04, with and without the fake cPanel tree. |
 | `make lab-up` / `make lab-down` | Starts (or removes) long-running containers with the fake cPanel tree, the plugin installed (tarball on AlmaLinux 8/9/10, `.deb` on Ubuntu 24.04) and the mock agent, for checking things by hand. See the header of `test/lab.sh`. |
+| `make umask-test` | Builds the tarball, RPM and `.deb` from a copy of the source where every file is group- and world-writable, with umask 002, then installs each (and the source directly) and checks that nothing installed is writable by group or others or owned by anyone but root. |
 | `make screenshots` | Renders every screen with the mock agent and saves PNGs to `docs/screenshots/` (needs Chrome or Chromium). |
 
 The fake tree and the stubs only exist inside throwaway containers. The test scripts refuse to run outside

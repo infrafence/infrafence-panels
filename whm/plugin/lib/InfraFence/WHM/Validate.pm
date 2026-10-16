@@ -9,7 +9,7 @@ use warnings;
 use Socket qw(inet_pton inet_ntop AF_INET6);
 
 use Exporter 'import';
-our @EXPORT_OK = qw(valid_ip valid_note valid_actor valid_docroot valid_choice);
+our @EXPORT_OK = qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
 use constant NOTE_MAX => 200;
 
@@ -76,6 +76,22 @@ sub valid_docroot {
         return $k if defined $k && $k eq $path;
     }
     return undef;
+}
+
+# A link the agent sends (dashboard_url), before it goes into an href.
+# Strict: https, a host name made of DNS labels (no userinfo, no IP literal
+# brackets), an optional port, then a path and query of plain URL characters
+# only (no spaces, quotes, backslashes or "@"). No fragment.
+my $LABEL = qr/[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?/;
+my $HTTPS = qr{\Ahttps://$LABEL(?:\.$LABEL)*(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~%/+,;=:-]*)?(?:\?[A-Za-z0-9._~%/+,;=:&-]*)?\z};
+
+sub valid_https_url {
+    my ($s) = @_;
+    return undef unless defined $s && length $s <= 2048 && $s =~ $HTTPS;
+    if ( $s =~ m{\Ahttps://[^/?]*:([0-9]+)} ) {
+        return undef if $1 < 1 || $1 > 65535;
+    }
+    return $s;
 }
 
 # One of a fixed list of values, or the default.

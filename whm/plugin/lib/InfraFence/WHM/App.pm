@@ -19,7 +19,7 @@ use warnings;
 use Time::HiRes ();
 
 use InfraFence::WHM::Util qw(const_eq uri_escape);
-use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice);
+use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
 our $VERSION = '0.1.0';
 
@@ -251,11 +251,7 @@ sub _notice_query {
     my ( $name, $act, $r ) = @_;
     my $code = $name eq 'allow' && $r->{already} ? 'allow_already' : "${name}_ok";
     my @q = ("notice=$code");
-    if ( $name eq 'scan' ) {
-        my $path = defined $r->{path} && length $r->{path} ? $r->{path} : $act->{path};
-        push @q, 'path=' . uri_escape($path);
-    }
-    else {
+    if ( $name ne 'scan' ) {
         my $ip = valid_ip( $r->{ip} );
         push @q, 'ip=' . uri_escape( defined $ip ? $ip : $act->{ip} );
     }
@@ -320,13 +316,12 @@ sub _notice {
     my $p    = $self->{request}{params};
     my $code = valid_choice( $p->{notice}, [qw(unban_ok allow_ok allow_already disallow_ok scan_ok)], undef );
     return unless $code;
+    # A notice is one of the fixed messages above. The values filled into it
+    # are re-derived, never echoed: the address is re-parsed and printed in
+    # canonical form, the date is re-formatted, the source is one of a list,
+    # flags are on/off. No free text from the query string is shown.
     my %n = ( code => $code );
-    if ( $code eq 'scan_ok' ) {
-        my $path = $p->{path};
-        return unless defined $path && $path =~ m{\A/[^\x00-\x1f\x7f]{0,4095}\z};
-        $n{path} = $path;
-    }
-    else {
+    if ( $code ne 'scan_ok' ) {
         $n{ip} = valid_ip( $p->{ip} );
         return unless defined $n{ip};
     }
@@ -374,7 +369,8 @@ sub _page_overview {
       : !$s->{connected}      ? 'offline'
       : $s->{monitor_mode}    ? 'monitor'
       :                         'protected';
-    $data->{automode} = _automode( $s->{automode} );
+    $data->{automode}      = _automode( $s->{automode} );
+    $data->{dashboard_url} = valid_https_url( $s->{dashboard_url} );
 
     return unless _running($data);
     my $agent = $self->{agent};

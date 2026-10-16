@@ -15,7 +15,7 @@
 [%- IF data.notice %]
 [%- n = data.notice %]
 <div class="alert alert-success" role="status">
-  [% L.t('notice.' _ n.code, ip => n.ip, path => n.path) | html %]
+  [% L.t('notice.' _ n.code, ip => n.ip) | html %]
   [%- IF n.code == 'unban_ok' && n.until %] [% L.t('notice.unban_until', until => L.time(n.until)) | html %][% END %]
   [%- IF n.code == 'unban_ok' && (n.source == 'network' || n.source == 'automode') %] <strong>[% L.t('unban.elsewhere.' _ n.source) | html %]</strong>[% END %]
   [%- IF n.banned %] [% L.t('notice.banned') | html %][% END %]

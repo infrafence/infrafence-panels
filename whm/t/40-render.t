@@ -79,6 +79,12 @@ unlike( $html, qr/keeps it in force on its other servers/, 'confirm: local ban h
 $html = render( run_app( params => { page => 'bans', notice => 'unban_ok', ip => '198.51.100.23', source => 'automode', until => '2026-10-16T16:00:00Z' } ) );
 like( $html, qr/lifted on this server only.*until 2026-10-16 16:00 UTC at the latest.*AutoMode ban: your organization keeps it/s, 'result: scope, date, kept elsewhere' );
 
+$html = render( run_app( params => { page => 'sites', notice => 'scan_ok', path => '/home/<i>x</i>' } ) );
+like( $html, qr/A malware scan of the site has started/, 'scan notice' );
+unlike( $html, qr{/home/(?:<|&lt;)i}, 'no path from the query string in the page' );
+$html = render( run_app( agent => IFTest::mock_agent( scenario => 'hostile' ) ) );
+unlike( $html, qr/ifn-open/, 'javascript: dashboard_url not linked' );
+
 $html = render( run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7' } ) );
 like( $html, qr/alert-success.*The ban on 203\.0\.113\.7 has been lifted/s, 'success notice' );
 $html = render( run_app( params => { page => 'bans', notice => 'unban_ok', ip => '203.0.113.7', threat_feed => 1 } ) );

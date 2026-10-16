@@ -24,7 +24,7 @@
   "notice.allow_ok": "{ip} wurde zur Zulassungsliste hinzugefügt.",
   "notice.allow_already": "{ip} war bereits zugelassen. Es wurde nichts geändert.",
   "notice.disallow_ok": "{ip} wurde von der Zulassungsliste entfernt.",
-  "notice.scan_ok": "Ein Malware-Scan von {path} wurde gestartet. Die Ergebnisse erscheinen unter Funde und im Dashboard.",
+  "notice.scan_ok": "Ein Malware-Scan der Website wurde gestartet. Die Ergebnisse erscheinen unter Funde und im Dashboard.",
   "notice.banned": "Die Adresse ist auch gesperrt: Die Zulassungsliste hat Vorrang, daher wird sie nicht blockiert, die Sperre wird aber weiterhin aufgeführt.",
   "notice.unreported": "Das Dashboard war nicht erreichbar; es wird nach der nächsten Synchronisierung informiert.",
   "notice.threat_feed": "Die Adresse steht auch auf einer Bedrohungsliste, die dieser Server blockiert, und kann daher weiterhin abgewiesen werden.",

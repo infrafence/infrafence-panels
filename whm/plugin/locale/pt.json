@@ -24,7 +24,7 @@
   "notice.allow_ok": "{ip} foi adicionado à lista de permissões.",
   "notice.allow_already": "{ip} já estava na lista de permissões. Nada foi alterado.",
   "notice.disallow_ok": "{ip} foi removido da lista de permissões.",
-  "notice.scan_ok": "Uma verificação de malware de {path} foi iniciada. Os resultados vão aparecer em Ocorrências e no painel.",
+  "notice.scan_ok": "Uma verificação de malware do site foi iniciada. Os resultados vão aparecer em Ocorrências e no painel.",
   "notice.banned": "O endereço também tem um bloqueio: a lista de permissões prevalece, então o tráfego não é bloqueado, mas o bloqueio continua listado.",
   "notice.unreported": "Não foi possível acessar o painel; ele será informado após a próxima sincronização.",
   "notice.threat_feed": "O endereço também está em uma lista de ameaças bloqueada por este servidor, então ainda pode ser recusado.",

@@ -24,7 +24,7 @@
   "notice.allow_ok": "{ip} se ha añadido a la lista de permitidos.",
   "notice.allow_already": "{ip} ya estaba en la lista de permitidos. No se ha cambiado nada.",
   "notice.disallow_ok": "{ip} se ha eliminado de la lista de permitidos.",
-  "notice.scan_ok": "Se ha iniciado un análisis de malware de {path}. Los resultados aparecerán en Hallazgos y en el panel.",
+  "notice.scan_ok": "Se ha iniciado un análisis de malware del sitio. Los resultados aparecerán en Hallazgos y en el panel.",
   "notice.banned": "La dirección también tiene un bloqueo: prevalece la lista de permitidos, así que su tráfico no se bloquea, pero el bloqueo sigue en la lista.",
   "notice.unreported": "No se pudo conectar con el panel; se le informará tras la próxima sincronización.",
   "notice.threat_feed": "La dirección también figura en una lista de amenazas que este servidor bloquea, por lo que su tráfico aún podría rechazarse.",

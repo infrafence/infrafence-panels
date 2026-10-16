@@ -24,7 +24,7 @@
   "notice.allow_ok": "{ip} è stato aggiunto alla lista consentiti.",
   "notice.allow_already": "{ip} era già nella lista consentiti. Non è stato modificato nulla.",
   "notice.disallow_ok": "{ip} è stato rimosso dalla lista consentiti.",
-  "notice.scan_ok": "La scansione malware di {path} è stata avviata. I risultati compariranno in Rilevamenti e nella dashboard.",
+  "notice.scan_ok": "La scansione malware del sito è stata avviata. I risultati compariranno in Rilevamenti e nella dashboard.",
   "notice.banned": "L'indirizzo ha anche un blocco attivo: prevale la lista consentiti, quindi il traffico non viene bloccato, ma il blocco resta in elenco.",
   "notice.unreported": "Impossibile raggiungere la dashboard; verrà informata dopo la prossima sincronizzazione.",
   "notice.threat_feed": "L'indirizzo è anche in una lista di minacce bloccata da questo server, quindi potrebbe comunque essere rifiutato.",

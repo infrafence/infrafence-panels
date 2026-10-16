@@ -7,8 +7,8 @@
     <h2 class="ifn-state-title"><span class="ifn-dot" aria-hidden="true"></span>[% L.t('overview.state.' _ prot) | html %]</h2>
     <p>[% L.t('overview.state.' _ prot _ '.text') | html %]</p>
   </div>
-  [%- IF s.dashboard_url.match('^https://') %]
-  <a class="btn btn-primary ifn-open" href="[% s.dashboard_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('overview.open') | html %] <span aria-hidden="true">&#8599;</span></a>
+  [%- IF data.dashboard_url %]
+  <a class="btn btn-primary ifn-open" href="[% data.dashboard_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('overview.open') | html %] <span aria-hidden="true">&#8599;</span></a>
   [%- END %]
 </div>
 

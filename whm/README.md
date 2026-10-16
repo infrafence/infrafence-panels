@@ -38,10 +38,15 @@ changes the firewall, ModSecurity or any other tool by itself.
   An unban from the panel lifts the ban on this server only, for at most 30 days; the plugin says so before
   and after.
 - **Running the agent.** The command is started from an argv list, never through a shell. It runs with a
-  clean environment, no stdin, a 20-second limit and capped output. The binary must be owned by root and
-  not writable by anyone else.
-- **Output.** Everything is escaped in the templates. The "Open in InfraFence" link sends no referrer, so
+  clean environment, no stdin, a 20-second limit (25 seconds in total for the Overview's calls) and capped
+  output. The binary is resolved with `realpath`; it and every directory above it must be owned by root and
+  not writable by group or others, and the resolved file is what runs.
+- **Output.** Everything is escaped in the templates. Messages after an action come from a fixed list; the
+  values in them are re-derived (canonical address, re-formatted date), never echoed from the URL. The
+  "Open in InfraFence" link is shown only for a strict `https://host/path` URL and sends no referrer, so
   the WHM session token never leaves the server.
+- **Files.** Everything installed is owned by root and writable only by root, whatever the build's umask
+  (`make umask-test`).
 - **Language.** The text follows the WHM user's locale: English, Italian, Spanish, French, German or
   Portuguese (`plugin/locale/*.json`).
 

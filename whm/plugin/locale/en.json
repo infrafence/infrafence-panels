@@ -24,7 +24,7 @@
   "notice.allow_ok": "{ip} has been added to the allow list.",
   "notice.allow_already": "{ip} was already allowed. Nothing was changed.",
   "notice.disallow_ok": "{ip} has been removed from the allow list.",
-  "notice.scan_ok": "A malware scan of {path} has started. Results will appear under Findings and in the dashboard.",
+  "notice.scan_ok": "A malware scan of the site has started. Results will appear under Findings and in the dashboard.",
   "notice.banned": "The address is also banned: the allow list wins, so it is not blocked, but the ban is still listed.",
   "notice.unreported": "The dashboard could not be reached; it will be told after the next sync.",
   "notice.threat_feed": "The address is also on a threat list this server blocks, so it may still be refused.",
