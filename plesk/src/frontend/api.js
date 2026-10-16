@@ -3,7 +3,7 @@
 let apiUrl = '';
 
 export const setApiUrl = url => {
-    apiUrl = url.replace(/\/+$/, '');
+    apiUrl = url;
 };
 
 const token = () => {
@@ -11,9 +11,22 @@ const token = () => {
     return meta ? meta.content : '';
 };
 
-const request = async (action, options) => {
+// The API answers 400/401 without a valid session and 403 for a missing or wrong forgery
+// protection token (or a non-administrator), with no JSON body.
+const statusError = (status, method) => {
+    if (status === 400 || status === 401) {
+        return 'csrf_token_missing';
+    }
+    if (status === 403) {
+        return method === 'POST' ? 'csrf_token_missing' : 'access_denied';
+    }
+    return 'bad_reply';
+};
+
+const request = async (action, params, options) => {
+    const query = new URLSearchParams({ action, ...params }).toString();
     try {
-        const response = await fetch(`${apiUrl}/${action}`, {
+        const response = await fetch(`${apiUrl}?${query}`, {
             credentials: 'same-origin',
             ...options,
             headers: {
@@ -24,7 +37,7 @@ const request = async (action, options) => {
         });
         const data = await response.json().catch(() => null);
         if (!data || typeof data.ok !== 'boolean') {
-            return { ok: false, error: response.status === 403 ? 'access_denied' : 'bad_reply' };
+            return { ok: false, error: statusError(response.status, options.method) };
         }
         return data;
     } catch (e) {
@@ -32,12 +45,9 @@ const request = async (action, options) => {
     }
 };
 
-export const get = (action, params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return request(query ? `${action}?${query}` : action, { method: 'GET' });
-};
+export const get = (action, params = {}) => request(action, params, { method: 'GET' });
 
-export const post = (action, body = {}) => request(action, {
+export const post = (action, body = {}) => request(action, {}, {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json; charset=utf-8',

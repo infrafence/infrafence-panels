@@ -25,7 +25,7 @@ class Modules_Infrafence_Config
      */
     public static function httpsUrl($url): ?string
     {
-        if (!is_string($url) || strlen($url) > 2048 || !preg_match('#^https://[A-Za-z0-9.-]+(:\d+)?(/[^\s"\'<>]*)?$#', $url)) {
+        if (!is_string($url) || strlen($url) > 2048 || !preg_match('#^https://[A-Za-z0-9.-]+(:\d+)?(/[^\s"\'<>]*)?\z#', $url)) {
             return null;
         }
 

@@ -25,7 +25,8 @@ Text is in en-US, it-IT, es-ES, fr-FR, de-DE, pt-PT and pt-BR.
 ## How it works
 
 ```
-browser ──(Plesk session, admin only, CSRF token)──▶ plib/controllers/ApiController.php   runs as psaadm
+browser ──(Plesk session, CSRF token)──▶ htdocs/api.php: Plesk SDK middleware        runs as psaadm
+                                          Session ▸ UserRole(admin) ▸ Csrf ▸ plib/library/Api.php
                                                           │ pm_ApiCli::callSbin('infrafence-panel', [argv…])
                                                           ▼
                                    /usr/local/psa/admin/sbin/modules/infrafence/infrafence-panel   root
@@ -35,22 +36,39 @@ browser ──(Plesk session, admin only, CSRF token)──▶ plib/controllers/
 ```
 
 - **Administrator only.** The agent's data is server-wide (all accounts' sites, bans, events and findings),
-  so v1 never shows it to resellers or customers. Every controller has `$_accessLevel = 'admin'` and checks the session again;
-  hooks only use administrator places. Customers and resellers are turned away by Plesk.
-- **Changes are POST only**, sent with Plesk's forgery protection token (Plesk rejects a POST without
-  a valid token before the extension runs) and confirmed by the user in a dialog.
+  so v1 never shows it to resellers or customers. The page controller has `$_accessLevel = 'admin'`; the
+  JSON API (`htdocs/api.php`) runs Plesk's SDK middleware `UserRole` with the administrator role only, then
+  checks the session again; the Home block and the buttons exist only for the administrator.
+- **Changes are POST only**, confirmed by the user in a dialog, and must carry the session's forgery
+  protection token: Plesk's SDK middleware `Plesk\SDK\Middleware\Access\Csrf` checks it against the session
+  and answers 403 when it is missing or wrong, before the extension's code runs. Requests without a Plesk
+  session get 400. Every JSON reply has `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`.
 - **Preflight before every change.** The agent must report `agent_running`, and the target must exist in
   the agent's current state: the address must be banned to unban it, an entry must be in the allow list and
   added from the panel to remove it, the document root must be a site the agent marks `scannable`.
 - **Input is validated three times**: in the browser, in PHP (one IPv4 or IPv6 address, no ranges, no
   unspecified, broadcast or multicast address; notes up to 200 bytes), and in the root wrapper. The agent
   checks everything again.
-- **The wrapper** (`src/sbin/infrafence-panel`) accepts only the contract commands and options, checks each
-  value against the agent's own rules, requires `scan` paths to resolve (`readlink -e`) inside the Plesk vhosts
-  directory (`HTTPD_VHOSTS_D`), runs the agent only if the binary and its directory are owned by root and not
-  writable by others, clears the environment, and applies a 25 second timeout. Its refusals use the agent's
-  error shape and codes (`bad_request`, `invalid_ip`, `invalid_actor`, `invalid_path`, `not_a_document_root`,
-  `unknown_command`), plus `agent_not_installed` and `agent_untrusted` of its own; exit status 1.
+- **The wrapper** (`src/sbin/infrafence-panel`):
+  - refuses to run unless it is root (`not_root`); clears `BASH_ENV`, `ENV` and `CDPATH`, sets a safe `IFS`,
+    and execs the agent with an empty environment, without a shell;
+  - accepts only the contract commands and options, and checks each value against the agent's own rules;
+  - for `scan`, resolves the document root with `readlink -e`, requires it inside the Plesk vhosts directory
+    (`HTTPD_VHOSTS_D`), refuses one that is or goes through a symlink below it (`not_scannable`), and passes the
+    resolved path to the agent, which checks again that it is a site's document root owned by its account;
+  - runs the agent only if the binary and every directory above it, up to `/`, are owned by root and not
+    writable by group or others (`agent_untrusted`);
+  - stops the agent after the time it is given (`--timeout`, at most 25 seconds).
+
+  Its refusals use the agent's error shape and codes, plus `agent_not_installed` and `agent_untrusted` of
+  its own; exit status 1. Plesk installs it 0755 root:root (it does so for every module sbin file, and an
+  extension's install scripts run as psaadm and cannot change that); it is run as root only through Plesk's
+  setuid helper `mod_wrapper`, and run directly by anyone else it refuses at once.
+- **One deadline per request.** A change makes up to four agent calls (status, the preflight list, the
+  change, and the allow of "Unban and allow"); they share one deadline of 50 seconds, well below PHP's time
+  limit, and each call gets only the time that is left.
+- **Logs.** The agent's English `message` goes to the Plesk log with control characters replaced, so a
+  reply cannot forge or split log lines.
 - **It changes nothing on the host by itself.** Installing the extension adds files under Plesk's own
   directories only. It never touches iptables, nftables, ModSecurity, fail2ban or other tools; all changes
   go through the agent, which reports them to the dashboard as `panel_*` events with the Plesk login as
@@ -97,9 +115,10 @@ plesk/
     _meta/icons/           32x32, 64x64, 128x128
     _meta/screenshots/
     htdocs/                index.php, css/, images/, dist/main.js (built)
-    plib/controllers/      IndexController (the page), ApiController (JSON endpoints)
+    htdocs/api.php         JSON API entry point: Plesk SDK middleware (session, admin role, CSRF)
+    plib/controllers/      IndexController (the page)
     plib/hooks/            Navigation, CustomButtons, Home (status block), ActionLog
-    plib/library/          Agent (calls the wrapper), Validate, Config, Messages, HomeBlock
+    plib/library/          Api (the JSON actions), Agent (calls the wrapper), Validate, Config, Messages, HomeBlock
     plib/resources/locales/
     plib/views/
     sbin/infrafence-panel  root wrapper
@@ -121,7 +140,7 @@ plesk/
 ```
 
 Needs only Docker: PHP lint and the locale check run in `php:8.3-cli`; the mock check and the UI build
-(`plesk-ext-sdk`) run in `node:20`. Output: `dist/infrafence-plesk-1.0.0-1.zip`.
+(`plesk-ext-sdk`) run in `node:20-bookworm`. Both images are pinned by digest in `build.sh`. Output: `dist/infrafence-plesk-1.0.0-1.zip`.
 
 ## Install
 

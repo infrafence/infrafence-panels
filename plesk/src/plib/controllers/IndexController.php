@@ -27,7 +27,7 @@ class IndexController extends pm_Controller_Action
         $this->view->stylesheetUrl = $baseUrl . 'css/infrafence.css?v=' . rawurlencode(pm_Context::getModuleInfo()->version ?? '1');
         $this->view->params = [
             'mountId' => 'infrafence-app',
-            'apiUrl' => $baseUrl . 'index.php/api',
+            'apiUrl' => $baseUrl . 'api.php',
             'screen' => in_array($screen, self::SCREENS, true) ? $screen : 'overview',
             'locale' => pm_Locale::getCode(),
             'messages' => Modules_Infrafence_Messages::forUi(),

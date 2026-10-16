@@ -39,6 +39,11 @@ class Modules_Infrafence_HomeBlock extends \Plesk\SDK\Hook\Home\Block
 
     public function getContent(): string
     {
+        // The agent's data is server-wide: never shown to anyone but the administrator.
+        if (!pm_Session::isExist() || !pm_Session::getClient()->isAdmin()) {
+            return '';
+        }
+
         $status = Modules_Infrafence_Agent::call('status');
 
         if (!$status['ok']) {
@@ -70,6 +75,10 @@ class Modules_Infrafence_HomeBlock extends \Plesk\SDK\Hook\Home\Block
 
     public function getFooter(): string
     {
+        if (!pm_Session::isExist() || !pm_Session::getClient()->isAdmin()) {
+            return '';
+        }
+
         return '<a class="pul-link" href="' . $this->escape(pm_Context::getActionUrl('index', 'index')) . '">'
             . $this->escape(pm_Locale::lmsg('homeOpen')) . '</a>';
     }
