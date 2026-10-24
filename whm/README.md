@@ -1,7 +1,8 @@
 # InfraFence for cPanel & WHM
 
 A WHM plugin for root: **WHM » Plugins » InfraFence**. It shows what the InfraFence agent on the server
-is doing and lets you act on it, inside WHM's own interface.
+is doing and lets you act on it, inside WHM's own interface. It is in early access; install guide on the
+site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 
 | Screen | What it shows |
 |---|---|
