@@ -75,6 +75,15 @@ sub t {
     return $s;
 }
 
+# A sentence with a count: "<key>.one" when n is 1, else "<key>.other";
+# {n} is filled with the formatted number.
+#   [% L.tn('verdict.critical', 3) | html %]
+sub tn {
+    my ( $self, $key, $n, @rest ) = @_;
+    my $k = defined $n && $n == 1 && $self->has("$key.one") ? "$key.one" : "$key.other";
+    return $self->t( $k, { @rest, n => $self->number($n) } );
+}
+
 # Text for a value from the agent (severity, source, status...). Values the
 # plugin does not know yet are shown as they are.
 sub label {

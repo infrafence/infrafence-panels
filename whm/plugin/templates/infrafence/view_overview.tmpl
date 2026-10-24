@@ -1,75 +1,204 @@
+[%#
+  Overview, in reading order: 1. the status row (protection, score, verdict),
+  2. the key figures, 3. what needs attention (critical events, score items),
+  4. the attack map, 5. the technical details. Colour only marks a state.
+-%]
 [%- s = data.status -%]
 [%- IF s.ok %]
 [%- prot = data.protection %]
+[%- tone = { protected => 'ok', monitor => 'warning', offline => 'warning', suspended => 'critical', stopped => 'critical' } %]
+[%- sc = data.score %]
 [%- hb_age = L.age(s.last_heartbeat) %]
-<div class="ifn-state ifn-state-[% prot | html %]">
-  <div class="ifn-state-main">
+<div class="ifn-status ifn-tone-[% tone.$prot || 'warning' | html %]">
+  <div class="ifn-status-state">
     <h2 class="ifn-state-title"><span class="ifn-dot" aria-hidden="true"></span>[% L.t('overview.state.' _ prot) | html %]</h2>
     <p>[% L.t('overview.state.' _ prot _ '.text') | html %]</p>
   </div>
+  [%- IF sc.state == 'ok' %]
+  <div class="ifn-status-score">
+    <span class="ifn-status-label">[% L.t('overview.score') | html %]</span>
+    <span class="ifn-big">[% sc.score | html %]</span><span class="ifn-of">[% L.t('score.out_of') | html %]</span>
+    <span class="ifn-grade ifn-grade-[% sc.tone | html %]">[% L.t('overview.grade', grade => sc.grade) | html %]</span>
+  </div>
+  [%- END %]
+  [%- IF data.verdict %]
+  [%- v = data.verdict %]
+  <p class="ifn-verdict ifn-verdict-[% v.tone | html %]">
+    [%- IF v.key == 'ok' %][% L.t('verdict.ok') | html %]
+    [%- ELSIF v.key == 'state' %][% L.t('verdict.state.' _ prot) | html %]
+    [%- ELSE %][% L.tn('verdict.' _ v.key, v.n) | html %][% END %]</p>
+  [%- END %]
   [%- IF data.dashboard_url %]
-  <a class="btn btn-primary ifn-open" href="[% data.dashboard_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('overview.open') | html %] <span aria-hidden="true">&#8599;</span></a>
+  <a class="btn btn-default ifn-open" href="[% data.dashboard_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('overview.open') | html %] <span aria-hidden="true">&#8599;</span></a>
   [%- END %]
 </div>
 
 [%- IF data.counts %]
-<div class="row ifn-counts">
-  <div class="col-sm-4"><a class="ifn-count" href="[% data.script | html %]?page=bans">
-    <span class="ifn-count-n">[% IF data.counts.bans.defined %][% L.number(data.counts.bans) | html %][% ELSE %]&ndash;[% END %]</span>
-    <span class="ifn-count-l">[% L.t('overview.count.bans') | html %]</span></a></div>
-  <div class="col-sm-4"><a class="ifn-count[% IF data.counts.findings %] ifn-count-warn[% END %]" href="[% data.script | html %]?page=findings">
-    <span class="ifn-count-n">[% IF data.counts.findings.defined %][% L.number(data.counts.findings) | html %][% ELSE %]&ndash;[% END %]</span>
-    <span class="ifn-count-l">[% L.t('overview.count.findings') | html %]</span></a></div>
-  <div class="col-sm-4"><a class="ifn-count" href="[% data.script | html %]?page=events">
-    <span class="ifn-count-n">[% IF data.counts.events.defined %][% L.number(data.counts.events) | html %][% IF data.counts.events_more %]+[% END %][% ELSE %]&ndash;[% END %]</span>
-    <span class="ifn-count-l">[% L.t('overview.count.events') | html %]</span></a></div>
+[%- c = data.counts %]
+<div class="ifn-figures">
+  <a class="ifn-figure" href="#ifn-map">
+    <span class="ifn-figure-n">[% IF c.attacks.defined %][% L.number(c.attacks) | html %][% ELSE %]&ndash;[% END %]</span>
+    <span class="ifn-figure-l">[% L.t('overview.count.attacks') | html %]</span></a>
+  <a class="ifn-figure[% IF c.critical %] ifn-figure-critical[% END %]" href="[% data.script | html %]?page=events&amp;severity=critical">
+    <span class="ifn-figure-n">[% IF c.critical.defined %][% L.number(c.critical) | html %][% ELSE %]&ndash;[% END %]</span>
+    <span class="ifn-figure-l">[% L.t('overview.count.critical') | html %]</span></a>
+  <a class="ifn-figure" href="[% data.script | html %]?page=bans">
+    <span class="ifn-figure-n">[% IF c.bans.defined %][% L.number(c.bans) | html %][% ELSE %]&ndash;[% END %]</span>
+    <span class="ifn-figure-l">[% L.t('overview.count.bans') | html %]</span></a>
+  <a class="ifn-figure[% IF c.findings %] ifn-figure-critical[% END %]" href="[% data.script | html %]?page=findings">
+    <span class="ifn-figure-n">[% IF c.findings.defined %][% L.number(c.findings) | html %][% ELSE %]&ndash;[% END %]</span>
+    <span class="ifn-figure-l">[% L.t('overview.count.findings') | html %]</span></a>
 </div>
+
+<h2 class="ifn-section">[% L.t('attention.title') | html %]</h2>
+<div class="ifn-attention">
+  [%- a = data.attention %]
+  <section class="ifn-card" aria-labelledby="ifn-attention-events">
+    <header class="ifn-card-head">
+      <h3 id="ifn-attention-events">[% L.t('attention.events') | html %]</h3>
+      [%- IF a %]<span class="ifn-card-meta">[% L.t('attention.counts', critical => L.number(a.critical), warning => L.number(a.warning)) | html %]</span>[% END %]
+    </header>
+    [%- IF a.events.size %]
+    <ul class="ifn-events">
+      [%- FOREACH e IN a.events %]
+      <li>
+        <span class="ifn-sev ifn-sev-[% e.level | html %]">[% L.label('severity', e.severity) | html %]</span>
+        <span class="ifn-event-name">[% IF L.has('event.' _ e.type) %][% L.t('event.' _ e.type) | html %][% ELSE %][% L.t('event.unknown') | html %] <code>[% e.type | html %]</code>[% END %]
+          [%- IF e.ip %] <span class="ifn-ip text-muted">[% L.t('attention.from', ip => e.ip) | html %]</span>[% END %]</span>
+        <time class="ifn-event-time text-muted" datetime="[% e.time | html %]" title="[% L.time(e.time) | html %]">[% L.ago(e.time) | html %]</time>
+      </li>
+      [%- END %]
+    </ul>
+    <p class="ifn-card-foot"><a href="[% data.script | html %]?page=events&amp;severity=[% a.filter | uri | html %]">[% L.t('attention.all') | html %] &rarr;</a></p>
+    [%- ELSIF a %]
+    <p class="ifn-calm">[% L.t('attention.empty') | html %]</p>
+    [%- ELSE %]
+    <p class="ifn-calm">[% L.t('error.list') | html %]</p>
+    [%- END %]
+  </section>
+
+  <section class="ifn-card" aria-labelledby="ifn-score-title">
+    <header class="ifn-card-head">
+      <h3 id="ifn-score-title">[% L.t('score.title') | html %]</h3>
+      [%- IF sc.state == 'ok' && sc.delta.defined %]
+      <span class="ifn-card-meta">[% IF sc.delta > 0 %][% L.t('score.up', n => sc.delta) | html %][% ELSIF sc.delta < 0 %][% L.t('score.down', n => 0 - sc.delta) | html %][% ELSE %][% L.t('score.flat') | html %][% END %]</span>
+      [%- END %]
+    </header>
+    [%- IF sc.state == 'ok' %]
+    [%- IF sc.spark %]
+    [%- sp = sc.spark %]
+    <svg class="ifn-spark ifn-spark-[% sc.tone | html %]" viewBox="0 0 [% sp.width | html %] [% sp.height | html %]" preserveAspectRatio="none" role="img" aria-label="[% L.t('score.trend', from => sp.first.score, to => sp.last.score) | html %]">
+      <polyline points="[% sp.points | html %]" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+    </svg>
+    [%- END %]
+    [%- IF sc.items.size %]
+    <ul class="ifn-items">
+      [%- FOREACH i IN sc.items %]
+      <li><span>[% IF L.has('score.item.' _ i.key) %][% L.t('score.item.' _ i.key, i.args) | html %][% ELSE %][% L.t('score.item.other') | html %][% END %]</span>
+        <span class="ifn-points">[% L.t('score.points', n => i.points) | html %]</span></li>
+      [%- END %]
+    </ul>
+    [%- IF data.dashboard_url %]
+    <p class="ifn-card-foot"><a href="[% data.dashboard_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('score.fix') | html %] <span aria-hidden="true">&#8599;</span></a></p>
+    [%- END %]
+    [%- ELSE %]
+    <p class="ifn-calm">[% L.t('score.none') | html %]</p>
+    [%- END %]
+    [%- IF sc.stale && sc.generated_at %]<p class="ifn-small text-muted">[% L.t('score.updated', ago => L.ago(sc.generated_at)) | html %]</p>[% END %]
+    [%- ELSE %]
+    <p class="ifn-calm">[% L.t('score.' _ (sc.state || 'unavailable')) | html %]</p>
+    [%- END %]
+  </section>
+</div>
+
+[%- m = data.map %]
+<section class="ifn-map" id="ifn-map" aria-labelledby="ifn-map-title">
+  <header class="ifn-map-head">
+    <h2 class="ifn-section" id="ifn-map-title">[% L.t('map.title') | html %]</h2>
+    <nav class="btn-group btn-group-sm" aria-label="[% L.t('map.range') | html %]">
+      [%- FOREACH r IN m.ranges %]
+      <a class="btn btn-default[% IF r == m.range %] active[% END %]" href="[% data.script | html %]?page=overview&amp;range=[% r | uri | html %]#ifn-map"[% IF r == m.range %] aria-current="true"[% END %]>[% L.t('map.range.' _ r) | html %]</a>
+      [%- END %]
+    </nav>
+  </header>
+  [%- IF m.state == 'ok' || m.state == 'empty' %]
+  <div class="ifn-map-body">
+    <div class="ifn-map-figure[% IF m.state == 'empty' %] ifn-map-empty[% END %]">
+      <svg class="ifn-map-svg" viewBox="0 0 [% m.svg.width | html %] [% m.svg.height | html %]" role="img" aria-label="[% L.t('map.label') | html %]">
+        <g class="ifn-land">
+        [%- FOREACH sh IN m.svg.shapes %]
+          <path d="[% sh.d | html %]" fill="[% sh.fill | html %]">[% IF sh.name %]<title>[% L.t('map.tooltip', country => sh.name, n => L.number(sh.attacks)) | html %]</title>[% END %]</path>
+        [%- END %]
+        </g>
+        <g class="ifn-dots">
+        [%- FOREACH d IN m.svg.dots %]
+          <circle cx="[% d.x | html %]" cy="[% d.y | html %]" r="[% d.r | html %]"><title>[% L.t('map.tooltip', country => d.name, n => L.number(d.attacks)) | html %]</title></circle>
+        [%- END %]
+        </g>
+      </svg>
+      [%- IF m.state == 'empty' %]<p class="ifn-map-overlay">[% L.t('map.empty') | html %]</p>[% END %]
+    </div>
+    [%- IF m.state == 'ok' %]
+    <div class="ifn-map-side">
+      <p class="ifn-map-total"><span class="ifn-big">[% L.number(m.total) | html %]</span> [% L.t('map.total.' _ m.range) | html %]</p>
+      <h3>[% L.t('map.top') | html %]</h3>
+      <ol class="ifn-top">
+        [%- FOREACH c IN m.countries %]
+        <li><span>[% c.name | html %]</span> <span class="ifn-num">[% L.number(c.attacks) | html %]</span></li>
+        [%- END %]
+      </ol>
+      [%- IF m.country_count > m.countries.size %]<p class="text-muted ifn-small">[% L.t('map.countries', n => L.number(m.country_count)) | html %]</p>[% END %]
+      [%- IF m.categories.size %]
+      <h3>[% L.t('map.categories') | html %]</h3>
+      <ul class="ifn-top">
+        [%- FOREACH k IN m.categories %]
+        <li><span>[% L.label('attack_cat', k.cat) | html %]</span> <span class="ifn-num">[% k.pct | html %]%</span></li>
+        [%- END %]
+      </ul>
+      [%- END %]
+    </div>
+    [%- END %]
+  </div>
+  <p class="ifn-small text-muted">[% L.t('map.note') | html %][% IF m.stale && m.generated_at %] <strong class="ifn-stale">[% L.t('map.stale', ago => L.ago(m.generated_at)) | html %]</strong>[% END %]</p>
+  [%- ELSE %]
+  <p class="ifn-calm ifn-calm-box">[% L.t('map.' _ (m.state || 'unavailable')) | html %]</p>
+  [%- END %]
+</section>
 [%- END %]
 
-<div class="row">
-  <div class="col-md-6">
-    <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">[% L.t('overview.agent') | html %]</h3></div>
-      <table class="table ifn-dl">
-        <tr><th scope="row">[% L.t('overview.version') | html %]</th><td>[% s.version | html %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.service') | html %]</th><td>
-          [% IF s.agent_running %]<span class="label label-success">[% L.t('overview.running') | html %]</span>
-          [% ELSE %]<span class="label label-danger">[% L.t('overview.not_running') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.heartbeat') | html %]</th><td>
-          [% IF s.last_heartbeat %]
-            <time datetime="[% s.last_heartbeat | html %]" title="[% L.time(s.last_heartbeat) | html %]">[% L.ago(s.last_heartbeat) | html %]</time>
-            [% IF hb_age.defined && hb_age > 180 %]<span class="label label-warning">[% L.t('overview.heartbeat_stale') | html %]</span>[% END %]
-          [% ELSE %]<span class="text-muted">[% L.t('overview.never') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.sync') | html %]</th><td>
-          [% IF s.last_sync %]<time datetime="[% s.last_sync | html %]" title="[% L.time(s.last_sync) | html %]">[% L.ago(s.last_sync) | html %]</time>
-          [% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.agent_id') | html %]</th><td>
-          [% IF s.agent_id.defined %]<code>[% s.agent_id | html %]</code>[% ELSE %]<span class="text-muted">[% L.t('overview.not_registered') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.panel') | html %]</th><td>
-          [% IF s.control_panel %][% data.panel_names.${s.control_panel} || s.control_panel | html %][% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</td></tr>
-      </table>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">[% L.t('overview.account') | html %]</h3></div>
-      <table class="table ifn-dl">
-        <tr><th scope="row">[% L.t('overview.connection') | html %]</th><td>
-          [% IF s.connected %]<span class="label label-success">[% L.t('overview.connected') | html %]</span>
-          [% ELSE %]<span class="label label-warning">[% L.t('overview.disconnected') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.plan') | html %]</th><td>
-          [% IF s.plan %][% L.label('plan', s.plan) | html %][% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.protection_mode') | html %]</th><td>
-          [% IF s.monitor_mode.defined && s.monitor_mode %]<span class="label label-warning">[% L.t('overview.mode.monitor') | html %]</span>
-          [% ELSIF s.monitor_mode.defined %][% L.t('overview.mode.blocking') | html %]
-          [% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]
-          [% IF s.suspended %] <span class="label label-danger">[% L.t('overview.suspended') | html %]</span>[% END %]</td></tr>
-        <tr><th scope="row">[% L.t('overview.automode') | html %]</th><td>
-          [% IF data.automode.defined %]<span class="label label-[% IF data.automode == 'on' %]info[% ELSE %]default[% END %]">[% L.label('automode', data.automode) | html %]</span>
-          [% ELSE %]<span class="text-muted">[% L.t('overview.automode.none') | html %]</span>[% END %]
-          <span class="help-block ifn-help">[% L.t('overview.automode.help') | html %]</span></td></tr>
-      </table>
-    </div>
-  </div>
-</div>
+<section class="ifn-details" aria-labelledby="ifn-details-title">
+  <h2 class="ifn-section" id="ifn-details-title">[% L.t('overview.details') | html %]</h2>
+  <dl class="ifn-facts">
+    <div><dt>[% L.t('overview.version') | html %]</dt><dd>[% s.version | html %]</dd></div>
+    <div><dt>[% L.t('overview.service') | html %]</dt><dd>
+      [% IF s.agent_running %][% L.t('overview.running') | html %]
+      [% ELSE %]<span class="label label-danger">[% L.t('overview.not_running') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.heartbeat') | html %]</dt><dd>
+      [% IF s.last_heartbeat %]
+        <time datetime="[% s.last_heartbeat | html %]" title="[% L.time(s.last_heartbeat) | html %]">[% L.ago(s.last_heartbeat) | html %]</time>
+        [% IF hb_age.length && hb_age > 180 %]<span class="label label-warning">[% L.t('overview.heartbeat_stale') | html %]</span>[% END %]
+      [% ELSE %]<span class="text-muted">[% L.t('overview.never') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.sync') | html %]</dt><dd>
+      [% IF s.last_sync %]<time datetime="[% s.last_sync | html %]" title="[% L.time(s.last_sync) | html %]">[% L.ago(s.last_sync) | html %]</time>
+      [% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.connection') | html %]</dt><dd>
+      [% IF s.connected %][% L.t('overview.connected') | html %]
+      [% ELSE %]<span class="label label-warning">[% L.t('overview.disconnected') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.agent_id') | html %]</dt><dd>
+      [% IF s.agent_id.defined %]<code>[% s.agent_id | html %]</code>[% ELSE %]<span class="text-muted">[% L.t('overview.not_registered') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.panel') | html %]</dt><dd>
+      [% IF s.control_panel %][% data.panel_names.${s.control_panel} || s.control_panel | html %][% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.plan') | html %]</dt><dd>
+      [% IF s.plan %][% L.label('plan', s.plan) | html %][% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.protection_mode') | html %]</dt><dd>
+      [% IF s.monitor_mode.defined && s.monitor_mode %]<span class="label label-warning">[% L.t('overview.mode.monitor') | html %]</span>
+      [% ELSIF s.monitor_mode.defined %][% L.t('overview.mode.blocking') | html %]
+      [% ELSE %]<span class="text-muted">[% L.t('overview.unknown') | html %]</span>[% END %]
+      [% IF s.suspended %] <span class="label label-danger">[% L.t('overview.suspended') | html %]</span>[% END %]</dd></div>
+    <div><dt>[% L.t('overview.automode') | html %]</dt><dd>
+      [% IF data.automode.defined %][% L.label('automode', data.automode) | html %]
+      [% ELSE %]<span class="text-muted">[% L.t('overview.automode.none') | html %]</span>[% END %]</dd></div>
+  </dl>
+  <p class="ifn-small text-muted">[% L.t('overview.automode.help') | html %]</p>
+</section>
 [%- END %]

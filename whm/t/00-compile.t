@@ -5,7 +5,7 @@ use FindBin;
 use lib "$FindBin::Bin/lib";
 use IFTest qw($ROOT);
 
-for my $m (qw(Util Validate Agent I18n App CGI)) {
+for my $m (qw(Util Validate Agent I18n Map Prefs Score App CGI)) {
     require_ok("InfraFence::WHM::$m");
 }
 

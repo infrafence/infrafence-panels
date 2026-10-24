@@ -1,6 +1,7 @@
 #!/bin/sh
 # Renders every screen (dev/render) and takes screenshots with headless Chrome.
 #   dev/screenshots.sh OUTDIR [LANG]
+# WIDTH and HEIGHT set the window (default 1280x900).
 # Needs Docker (for Template Toolkit) and Google Chrome or Chromium.
 set -eu
 OUT=${1:?usage: dev/screenshots.sh OUTDIR [LANG]}
@@ -24,7 +25,7 @@ for f in "$OUT/html/$LANG_"/*.html; do
   name=$(basename "$f" .html)
   [ "$name" = index ] && continue
   "$CHROME" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="$OUT/.chrome" \
-    --window-size=1280,${HEIGHT:-900} --screenshot="$OUT/png/$LANG_-$name.png" \
+    --window-size=${WIDTH:-1280},${HEIGHT:-900} --screenshot="$OUT/png/$LANG_-$name.png" \
     "http://127.0.0.1:$PORT/$LANG_/$name.html" >/dev/null 2>&1
   echo "$OUT/png/$LANG_-$name.png"
 done

@@ -11,6 +11,7 @@ use warnings;
 use InfraFence::WHM::Agent ();
 use InfraFence::WHM::App   ();
 use InfraFence::WHM::I18n  ();
+use InfraFence::WHM::Prefs ();
 
 our $SHARE_DIR = '/usr/local/share/infrafence-whm';
 
@@ -24,14 +25,21 @@ sub main {
     }
 
     my $request = read_request( \%ENV, \*STDIN );
-    my $i18n    = InfraFence::WHM::I18n->new(
+    # The language chosen in the plugin by this WHM user, else WHM's own.
+    my $prefs    = InfraFence::WHM::Prefs->new;
+    my $whm_lang = _cpanel_locale();
+    my $chosen   = $prefs->lang( $request->{actor} );
+    my $i18n     = InfraFence::WHM::I18n->new(
         dir  => "$SHARE_DIR/locale",
-        lang => _cpanel_locale(),
+        lang => defined $chosen ? $chosen : $whm_lang,
     );
     my $app = InfraFence::WHM::App->new(
-        agent   => InfraFence::WHM::Agent->new,
-        i18n    => $i18n,
-        request => $request,
+        agent    => InfraFence::WHM::Agent->new,
+        i18n     => $i18n,
+        request  => $request,
+        prefs    => $prefs,
+        whm_lang => $whm_lang,
+        map_dir  => "$SHARE_DIR/map",
     );
     my $res = $app->run;
 
@@ -70,7 +78,7 @@ sub _cpanel_locale {
     return $tag;
 }
 
-my %REASON = ( 200 => 'OK', 303 => 'See Other', 400 => 'Bad Request', 403 => 'Forbidden' );
+my %REASON = ( 200 => 'OK', 303 => 'See Other', 400 => 'Bad Request', 403 => 'Forbidden', 500 => 'Internal Server Error' );
 
 sub _print_headers {
     my ( $code, $type, $location ) = @_;

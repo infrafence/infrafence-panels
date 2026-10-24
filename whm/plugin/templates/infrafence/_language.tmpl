@@ -1,0 +1,14 @@
+[%#  The plugin's language, per WHM user: a POST with the session's security token. -%]
+<form class="form-inline ifn-lang" method="post" action="[% data.script | html %]">
+  <input type="hidden" name="page" value="[% data.page | html %]">
+  <input type="hidden" name="action" value="language">
+  <input type="hidden" name="csrf" value="[% data.csrf | html %]">
+  <label for="ifn-lang">[% L.t('lang.label') | html %]</label>
+  <select id="ifn-lang" name="lang" class="form-control input-sm" data-ifn-autosubmit>
+    <option value="whm"[% IF data.lang_choice == 'whm' %] selected[% END %]>[% L.t('lang.whm', name => data.whm_lang_name) | html %]</option>
+    [%- FOREACH l IN data.languages %]
+    <option value="[% l.code | html %]" lang="[% l.code | html %]"[% IF l.code == data.lang_choice %] selected[% END %]>[% l.name | html %]</option>
+    [%- END %]
+  </select>
+  <noscript><button type="submit" class="btn btn-default btn-sm">[% L.t('lang.apply') | html %]</button></noscript>
+</form>

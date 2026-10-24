@@ -21,6 +21,8 @@ TPL_DIR=$WHM_DOCROOT/templates/infrafence
 ICON=$WHM_DOCROOT/addon_plugins/infrafence.png
 SHARE=/usr/local/share/infrafence-whm
 APPCONF=/var/cpanel/apps/infrafence.conf
+# Each WHM user's language choice (created by the plugin, with the marker).
+STATE=/var/cpanel/infrafence-whm
 MARKER=.infrafence-whm
 
 MODE=uninstall
@@ -79,6 +81,7 @@ remove_dir "$TPL_DIR"
 if [ -e "$ICON" ] && [ "$OWNED" -eq 1 ]; then
     if [ "$MODE" = check ]; then plan "remove $ICON"; else rm -f "$ICON"; fi
 fi
+remove_dir "$STATE"
 # The shared directory goes last: its marker is what proves the rest is ours.
 remove_dir "$SHARE"
 

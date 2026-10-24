@@ -29,6 +29,8 @@ sub mock_agent {
     my %env = ( MOCK_AGENT_SCENARIO => $o{scenario} || 'default' );
     $env{MOCK_AGENT_LOG}   = $o{log}   if $o{log};
     $env{MOCK_AGENT_FAULT} = $o{fault} if $o{fault};
+    $env{MOCK_AGENT_MAP}   = $o{map}   if $o{map};
+    $env{MOCK_AGENT_SCORE} = $o{score} if $o{score};
     return InfraFence::WHM::Agent->new(
         bin          => exists $o{bin} ? $o{bin} : "$ROOT/dev/mock-agent",
         strict_owner => $o{strict_owner} || 0,
@@ -42,18 +44,22 @@ sub i18n {
     return InfraFence::WHM::I18n->new( dir => "$ROOT/plugin/locale", lang => $lang || 'en', now => sub { NOW } );
 }
 
-# make_app(params => {...}, method => 'POST', scenario => 'empty', lang => 'it', ...)
+# make_app(params => {...}, method => 'POST', scenario => 'empty', lang => 'it',
+#          map => 'stale', score => 'old', prefs => InfraFence::WHM::Prefs->new(...), ...)
 sub make_app {
     my (%o) = @_;
     return InfraFence::WHM::App->new(
-        agent   => $o{agent} || mock_agent(%o),
-        i18n    => i18n( $o{lang} ),
+        agent    => $o{agent} || mock_agent(%o),
+        i18n     => i18n( $o{lang} ),
+        map_dir  => "$ROOT/plugin/map",
+        whm_lang => exists $o{whm_lang} ? $o{whm_lang} : ( $o{lang} || 'en' ),
+        ( $o{prefs} ? ( prefs => $o{prefs} ) : () ),
         request => {
             method  => $o{method} || 'GET',
             params  => $o{params} || {},
             token   => exists $o{token} ? $o{token} : TOKEN,
             actor   => exists $o{actor} ? $o{actor} : 'root',
-            host    => 'host07.hosting.example:2087',
+            host    => exists $o{host} ? $o{host} : 'host07.hosting.example:2087',
             origin  => $o{origin},
             referer => exists $o{referer} ? $o{referer} : 'https://host07.hosting.example:2087' . TOKEN . '/cgi/infrafence/index.cgi',
         },

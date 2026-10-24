@@ -23,6 +23,12 @@ die "usage: $0 OUTDIR [LANG ...]\n" unless $out;
 
 my @screens = (
     [ overview    => {} ],
+    [ 'overview-7d'            => { params => { range => '7d' } } ],
+    [ 'overview-stale'         => { map => 'stale', score => 'stale' } ],
+    [ 'overview-not-connected' => { map => 'not_connected', score => 'not_connected' } ],
+    [ 'overview-old-agent'     => { map => 'old', score => 'old' } ],
+    [ 'overview-empty'         => { scenario => 'empty' } ],
+    [ 'events-critical'        => { params => { page => 'events', severity => 'critical' } } ],
     [ bans        => { params => { page => 'bans' } } ],
     [ allowlist   => { params => { page => 'allowlist' } } ],
     [ findings    => { params => { page => 'findings' } } ],

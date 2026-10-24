@@ -18,6 +18,10 @@ use warnings;
 
 use Time::HiRes ();
 
+use InfraFence::WHM::I18n  ();
+use InfraFence::WHM::Map   ();
+use InfraFence::WHM::Prefs ();
+use InfraFence::WHM::Score ();
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
@@ -28,8 +32,18 @@ our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
 
 our @PAGES = qw(overview bans allowlist findings events coexistence sites);
 
-# Seconds for all the agent calls of the Overview together (it makes four).
+# Seconds for all the agent calls of the Overview together (it makes six, seven
+# with the 7-day map).
 our $OVERVIEW_DEADLINE = 25;
+
+# The Overview's "needs attention" list: events of these severities in the
+# last 24 hours, the most severe first, then the newest.
+use constant ATTENTION_MAX => 10;
+my %SEV_RANK = ( critical => 4, high => 3, warning => 2, medium => 2, low => 1, info => 0 );
+
+# The Events page's severity filter: the lowest severity rank shown.
+my %SEV_FILTER = ( all => 0, warning => 2, critical => 3 );
+my @SEV_FILTERS = qw(all warning critical);
 
 # Where each action may be started from (the first one is the default) and
 # what it acts on.
@@ -78,6 +92,10 @@ my %PANEL_NAMES = (
     bitnami     => 'Bitnami',
 );
 
+# Options besides agent, i18n and request:
+#   prefs     an InfraFence::WHM::Prefs (the user's language choice)
+#   whm_lang  the WHM user's own language (en, it...), for "Same as WHM"
+#   map_dir   where world.json and countries.json are
 sub new {
     my ( $class, %args ) = @_;
     for (qw(agent i18n request)) {
@@ -93,6 +111,11 @@ sub run {
     my $p    = $self->{request}{params};
     my $page = valid_choice( $p->{page}, \@PAGES, 'overview' );
     my $data = $self->_base($page);
+
+    # The language can be changed on every page, with or without the agent.
+    if ( defined $p->{action} && $p->{action} eq 'language' ) {
+        return $self->_set_language( $page, $data );
+    }
 
     return $self->_view( 'not_installed', $data ) unless $self->{agent}->installed;
 
@@ -124,6 +147,9 @@ sub _base {
         site_url       => $SITE_URL,
         add_server_url => $ADD_SERVER_URL,
         panel_names    => \%PANEL_NAMES,
+        languages      => [ map { { code => $_->[0], name => $_->[1] } } @InfraFence::WHM::Prefs::LANGUAGES ],
+        lang_choice    => $self->_lang_choice,
+        whm_lang_name  => _lang_name( InfraFence::WHM::I18n::normalize( $self->{whm_lang} ) ),
         errors         => [],
         sev_class      => {
             critical => 'danger',
@@ -159,6 +185,52 @@ sub _error {
 sub _running {
     my ($data) = @_;
     return $data->{status} && $data->{status}{ok} && $data->{status}{agent_running};
+}
+
+# ---------------------------------------------------------------- language
+
+# The language's own name, for one of the plugin's languages (en, it... pt).
+sub _lang_name {
+    my ($lang) = @_;
+    for (@InfraFence::WHM::Prefs::LANGUAGES) {
+        return $_->[1] if InfraFence::WHM::I18n::normalize( $_->[0] ) eq $lang;
+    }
+    return 'English';
+}
+
+# The stored choice ('it', 'pt-BR'...), or 'whm' when the plugin follows WHM.
+sub _lang_choice {
+    my ($self) = @_;
+    my $prefs = $self->{prefs} or return 'whm';
+    my $lang  = $prefs->lang( $self->{request}{actor} );
+    return defined $lang ? $lang : 'whm';
+}
+
+# POST action=language lang=<code>|whm csrf=<token>: stores the WHM user's
+# choice and goes back to the page. No confirmation step: it changes only how
+# the plugin reads for this user.
+sub _set_language {
+    my ( $self, $page, $data ) = @_;
+    my $p = $self->{request}{params};
+    unless ( $self->_csrf_ok ) {
+        _error( $data, 'csrf' );
+        return $self->_view( 'language', $data, 403 );
+    }
+    my $actor = valid_actor( $self->{request}{actor} );
+    unless ( defined $actor ) {
+        _error( $data, 'invalid_actor' );
+        return $self->_view( 'language', $data, 403 );
+    }
+    my $want = defined $p->{lang} && $p->{lang} eq 'whm' ? undef : InfraFence::WHM::Prefs::valid_lang( $p->{lang} );
+    unless ( defined $want || ( defined $p->{lang} && $p->{lang} eq 'whm' ) ) {
+        _error( $data, 'invalid_language' );
+        return $self->_view( 'language', $data, 400 );
+    }
+    unless ( $self->{prefs} && $self->{prefs}->set_lang( $actor, $want ) ) {
+        _error( $data, 'prefs_failed' );
+        return $self->_view( 'language', $data, 500 );
+    }
+    return { code => 303, location => "index.cgi?page=$page" };
 }
 
 # ---------------------------------------------------------------- actions
@@ -301,14 +373,33 @@ sub _csrf_ok {
     return 0 unless defined $token && length $token >= 8;
     return 0 unless const_eq( $token, defined $req->{params}{csrf} ? $req->{params}{csrf} : '' );
 
-    # When the browser says where the form came from, it must be this server.
-    my $host = lc( $req->{host} || '' );
+    # When the browser says where the form came from, it must be this server. cpsrvd passes
+    # HTTP_HOST without the port (emma.example.com, while the browser says :2087), so the names
+    # must match and the ports only when cpsrvd gives one; without one, the form must come from
+    # WHM's own ports (2087, 2086) or the default port of a whm.* proxy subdomain.
+    my ( $host, $port ) = _host_port( $req->{host} );
     for my $from ( $req->{origin}, $req->{referer} ) {
         next unless defined $from && length $from && $from ne 'null';
         my ($h) = $from =~ m{\Ahttps?://([^/?#]+)}i;
-        return 0 unless defined $h && length $host && lc $h eq $host;
+        my ( $from_host, $from_port ) = _host_port($h);
+        return 0 unless length $host && length $from_host && $from_host eq $host;
+        if ( length $port ) {
+            return 0 unless ( length $from_port ? $from_port : '' ) eq $port;
+        }
+        else {
+            return 0 unless !length $from_port || $from_port eq '2087' || $from_port eq '2086';
+        }
     }
     return 1;
+}
+
+# 'Host.Example:2087' -> ('host.example', '2087'); '[2001:db8::1]:2087' keeps the brackets.
+sub _host_port {
+    my ($hp) = @_;
+    return ( '', '' ) unless defined $hp && length $hp;
+    my ( $h, $p ) = lc($hp) =~ m{\A(\[[0-9a-f:.]+\]|[^:\[\]]+)(?::(\d{1,5}))?\z};
+    return ( '', '' ) unless defined $h;
+    return ( $h, defined $p ? $p : '' );
 }
 
 sub _notice {
@@ -372,8 +463,12 @@ sub _page_overview {
     $data->{automode}      = _automode( $s->{automode} );
     $data->{dashboard_url} = valid_https_url( $s->{dashboard_url} );
 
+    my $range = valid_choice( $self->{request}{params}{range}, [ map { $_->[0] } @InfraFence::WHM::Map::RANGES ], '24h' );
+    $data->{range} = $range;
+
     return unless _running($data);
     my $agent = $self->{agent};
+    my $L     = $self->{i18n};
     my %c;
 
     my $bans = $agent->call( 'bans', '--limit', '1' );
@@ -386,11 +481,56 @@ sub _page_overview {
 
     my $events = $agent->call( 'events', '--since', '24h', '--limit', '500' );
     if ( $events->{ok} ) {
-        my $n = scalar @{ $events->{events} || [] };
-        $c{events}      = $n;
-        $c{events_more} = $n >= 500 ? 1 : 0;
+        my @ev = grep { ref $_ eq 'HASH' } @{ ref $events->{events} eq 'ARRAY' ? $events->{events} : [] };
+        $c{events}      = scalar @ev;
+        $c{events_more} = @ev >= 500 ? 1 : 0;
+        $data->{attention} = _attention( \@ev, $L );
+        $c{critical} = $data->{attention}{critical};
+        $c{warning}  = $data->{attention}{warning};
     }
     $data->{counts} = \%c;
+
+    my $map = $agent->call( 'map', '--hours', InfraFence::WHM::Map::range_hours($range) );
+    $data->{map} = InfraFence::WHM::Map::view( reply => $map, lang => $L->lang, dir => $self->{map_dir}, range => $range );
+    # The key figure is always the last 24 hours, whatever window the map shows.
+    if ( $range eq '24h' ) {
+        $c{attacks} = $data->{map}{total} if defined $data->{map}{total};
+    }
+    else {
+        my $day = InfraFence::WHM::Map::view( reply => $agent->call( 'map', '--hours', 24 ), lang => $L->lang, dir => $self->{map_dir}, range => '24h' );
+        $c{attacks} = $day->{total} if defined $day->{total};
+    }
+
+    my $score = $agent->call('score');
+    $data->{score} = InfraFence::WHM::Score::view( reply => $score, number => sub { $L->number( $_[0] ) } );
+
+    $data->{verdict} =
+        $c{critical}                    ? { tone => 'critical', key => 'critical', n => $c{critical} }
+      : $c{findings}                    ? { tone => 'critical', key => 'findings', n => $c{findings} }
+      : $c{warning}                     ? { tone => 'warning',  key => 'warning',  n => $c{warning} }
+      : $data->{protection} ne 'protected' ? { tone => 'warning', key => 'state' }
+      :                                   { tone => 'ok', key => 'ok' };
+}
+
+# Critical and warning events of the last 24 hours, the most severe first,
+# then the newest; at most ATTENTION_MAX, with the count of each level.
+sub _attention {
+    my ( $events, $L ) = @_;
+    my ( %n, @list );
+    for my $e (@$events) {
+        my $sev  = defined $e->{severity} && !ref $e->{severity} ? $e->{severity} : '';
+        my $rank = $SEV_RANK{$sev} || 0;
+        next unless $rank >= $SEV_FILTER{warning};
+        my $level = $rank >= $SEV_FILTER{critical} ? 'critical' : 'warning';
+        $n{$level}++;
+        push @list, { %$e, level => $level, rank => $level eq q{critical} ? 1 : 0, ip => valid_ip( $e->{source_ip} ) };
+    }
+    @list = map { $_->[1] }
+      sort { $b->[1]{rank} <=> $a->[1]{rank} || $b->[0] <=> $a->[0] }
+      map { [ $L->epoch( $_->{time} ) || 0, $_ ] } @list;
+    splice @list, ATTENTION_MAX if @list > ATTENTION_MAX;
+    return { events => \@list, critical => $n{critical} || 0, warning => $n{warning} || 0,
+             filter => $n{critical} ? 'critical' : 'warning' };
 }
 
 sub _page_bans {
@@ -437,10 +577,22 @@ sub _page_findings {
 
 sub _page_events {
     my ( $self, $data ) = @_;
-    my $limit = valid_choice( $self->{request}{params}{limit}, \@EVENT_LIMITS, $EVENT_LIMITS[0] );
-    $data->{limit}  = $limit;
-    $data->{limits} = [ sort { $a <=> $b } @EVENT_LIMITS ];
-    $data->{events} = $self->_list( $data, $self->{agent}->call( 'events', '--limit', $limit ), 'events' );
+    my $p     = $self->{request}{params};
+    my $limit = valid_choice( $p->{limit}, \@EVENT_LIMITS, $EVENT_LIMITS[0] );
+    my $sev   = valid_choice( $p->{severity}, \@SEV_FILTERS, 'all' );
+    $data->{limit}      = $limit;
+    $data->{limits}     = [ sort { $a <=> $b } @EVENT_LIMITS ];
+    $data->{severity}   = $sev;
+    $data->{severities} = [@SEV_FILTERS];
+    my $all = $self->_list( $data, $self->{agent}->call( 'events', '--limit', $limit ), 'events' );
+    my %count = ( all => scalar @$all );
+    for my $e (@$all) {
+        my $rank = $SEV_RANK{ defined $e->{severity} && !ref $e->{severity} ? $e->{severity} : '' } || 0;
+        $count{warning}++  if $rank >= $SEV_FILTER{warning};
+        $count{critical}++ if $rank >= $SEV_FILTER{critical};
+    }
+    $data->{sev_count} = \%count;
+    $data->{events}    = [ grep { ( $SEV_RANK{ defined $_->{severity} && !ref $_->{severity} ? $_->{severity} : '' } || 0 ) >= $SEV_FILTER{$sev} } @$all ];
 }
 
 sub _page_coexistence {

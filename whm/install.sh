@@ -56,7 +56,7 @@ while [ $# -gt 0 ]; do
 done
 
 # The source layout: either this repository (plugin/...) or an installed copy
-# in $SHARE, which keeps install.sh next to lib/, locale/ and the rest.
+# in $SHARE, which keeps install.sh next to lib/, locale/, map/ and the rest.
 if [ -d "$SRC/plugin" ]; then
     P=$SRC/plugin
 else
@@ -121,7 +121,7 @@ preflight() {
         *) [ "$free_kb" -ge 10240 ] && ok_check "disk space" || fail_check "less than 10 MB free on /usr/local" ;;
     esac
 
-    for f in cgi/index.cgi appconfig/infrafence.conf icons/infrafence.png locale/en.json \
+    for f in cgi/index.cgi appconfig/infrafence.conf icons/infrafence.png locale/en.json map/world.json \
              templates/infrafence/main.tmpl lib/InfraFence/WHM/App.pm; do
         [ -f "$P/$f" ] || fail_check "package file missing: $f"
     done
@@ -174,12 +174,15 @@ fill_templates() {
 }
 
 fill_share() {
-    mkdir -p "$1/lib/InfraFence/WHM" "$1/locale" "$1/payload"
+    mkdir -p "$1/lib/InfraFence/WHM" "$1/locale" "$1/map" "$1/payload"
     for f in "$P"/lib/InfraFence/WHM/*.pm; do
         install -m 0644 "$f" "$1/lib/InfraFence/WHM/$(basename "$f")"
     done
     for f in "$P"/locale/*.json; do
         install -m 0644 "$f" "$1/locale/$(basename "$f")"
+    done
+    for f in "$P"/map/world.json "$P"/map/countries.json "$P"/map/NOTICE; do
+        install -m 0644 "$f" "$1/map/$(basename "$f")"
     done
     install -m 0644 "$P/appconfig/infrafence.conf" "$1/infrafence.conf"
     install -m 0755 "$SRC/install.sh" "$1/install.sh"
