@@ -25,7 +25,7 @@ use InfraFence::WHM::Score ();
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
-our $VERSION = '0.1.0';
+our $VERSION = '1.0.0';
 
 our $SITE_URL       = 'https://infrafence.com';
 our $ADD_SERVER_URL = 'https://infrafence.com/add-server';

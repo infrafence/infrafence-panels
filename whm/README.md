@@ -1,8 +1,9 @@
 # InfraFence for cPanel & WHM
 
 A WHM plugin for root: **WHM » Plugins » InfraFence**. It shows what the InfraFence agent on the server
-is doing and lets you act on it, inside WHM's own interface. It is in early access; install guide on the
-site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
+is doing and lets you act on it, inside WHM's own interface. It is available: install it from your
+InfraFence dashboard (Panels › cPanel & WHM) after creating an account at https://infrafence.com. Install
+guide on the site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 
 | Screen | What it shows |
 |---|---|
@@ -67,18 +68,19 @@ changes the firewall, ModSecurity or any other tool by itself.
 
 ## Install
 
-Each method checks the server first. If a check fails, nothing is changed. Services are never restarted.
+Install it from your InfraFence dashboard: **Panels › cPanel & WHM** gives a signed install command to run as
+root on the server. You need an InfraFence account (https://infrafence.com). The
+installer checks the server first. If a check fails, nothing is changed. Services are never restarted.
 
-**Tarball**
+**From source** (developers): `make packages` builds `dist/` (tarball, RPM, `.deb`) in Docker. Then, as root:
 
-    tar xzf infrafence-whm-0.1.0.tar.gz
-    cd infrafence-whm-0.1.0
+    tar xzf dist/infrafence-whm-VERSION.tar.gz
+    cd infrafence-whm-VERSION
     ./install.sh --check    # optional: only run the checks
     ./install.sh
 
-**RPM** (AlmaLinux 8/9/10, CloudLinux, Rocky): `dnf install ./infrafence-whm-0.1.0-1.noarch.rpm`
-
-**Debian package** (Ubuntu 24.04): `apt install ./infrafence-whm_0.1.0_all.deb`
+or `dnf install ./infrafence-whm-VERSION-1.noarch.rpm` (AlmaLinux 8/9/10, CloudLinux, Rocky), or
+`apt install ./infrafence-whm_VERSION_all.deb` (Ubuntu 24.04).
 
 To remove: `/usr/local/share/infrafence-whm/uninstall.sh` (tarball install), `dnf remove infrafence-whm`
 or `apt remove infrafence-whm`. Uninstalling removes only the plugin, never the agent.
@@ -106,6 +108,14 @@ or `apt remove infrafence-whm`. Uninstalling removes only the plugin, never the 
 own outputs). It also has a stopped agent, monitor mode, empty lists, hostile content for escaping tests, and
 faults (timeouts, invalid output).
 [TESTING.md](TESTING.md) covers the checks on a real cPanel server.
+
+### Releasing
+
+A release is a tag `whm-vX.Y.Z` that matches `VERSION`. The packages customers install are built from that tag,
+tested (`make test`, `make package-test`) and served by the InfraFence dashboard.
+
+Before a release: bump `VERSION`, `$VERSION` in `plugin/lib/InfraFence/WHM/App.pm` (checked by
+`t/00-compile.t`) and the `%changelog` in `packaging/rpm/infrafence-whm.spec`.
 
 ## Layout
 
