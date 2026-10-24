@@ -1,7 +1,7 @@
 # InfraFence for Plesk
 
 A Plesk Obsidian extension (18.0.60 or later, Linux) that shows the InfraFence agent running on the
-server, inside Plesk, for the administrator. It is in early access; install guide on the site:
+server, inside Plesk, for the administrator. It is in development and not ready for production servers yet; install guide on the site:
 [Plesk extension](https://infrafence.com/docs/plesk-extension).
 
 | Screen | What it shows | Actions |
@@ -13,6 +13,9 @@ server, inside Plesk, for the administrator. It is in early access; install guid
 | Events | Recent security events, last 24 hours / 7 / 30 days | |
 | Coexistence | The other security tools the agent found (CSF/lfd, Imunify360/ImunifyAV, cPHulk, fail2ban, CrowdSec, Plesk Firewall, BitNinja, Monarx, firewalld, ufw, ModSecurity and its rule sets) and what InfraFence does about each | |
 | Domains | Sites as the agent reads them from Plesk, and whether the scheduled scan covers them | Scan now (sites the agent can scan) |
+
+The Overview does not show the security score and the attack map yet: the extension does not use the agent's
+`panel score` and `panel map` commands (agent 1.0.33 or later), which the [WHM plugin](../whm/README.md) uses.
 
 When the agent is missing, the extension shows one screen that sends the administrator to the dashboard
 (Servers > Add server, https://infrafence.com/add-server) to get the install command.
