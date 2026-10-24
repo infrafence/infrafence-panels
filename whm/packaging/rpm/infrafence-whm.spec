@@ -55,5 +55,8 @@ fi
 /usr/local/share/infrafence-whm
 
 %changelog
+* Sat Oct 24 2026 Infrafence <info@infrafence.com> - 1.0.0-1
+- First available release.
+
 * Fri Oct 16 2026 Infrafence <info@infrafence.com> - 0.1.0-1
 - First version: overview, bans, allow list, findings, events, coexistence, sites.
