@@ -173,7 +173,7 @@ SKIP: {
     like( $html, qr{<svg class="ifn-spark ifn-spark-warning"}, 'sparkline' );
     like( $html, qr{\+12 in 30 days}, 'trend delta' );
     like( $html, qr{2 critical events in the last 24 hours\.}, 'verdict' );
-    like( $html, qr{2 critical · 2 warning}, 'attention counts' );
+    like( $html, qr{Critical: 2 · Warning: 2}, 'attention counts' );
     like( $html, qr{SQL injection <span class="ifn-ip text-muted">from 198\.51\.100\.23}, 'event name and address' );
     like( $html, qr{href="index\.cgi\?page=events&amp;severity=critical">See them in Events}, 'link to filtered events' );
 

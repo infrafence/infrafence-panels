@@ -7,8 +7,8 @@ site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 | Screen | What it shows |
 |---|---|
 | Overview | At a glance: protection status, security score and grade, and whether anything needs attention; the key figures (attacks, critical events, bans, findings); the last 24 hours' critical events and what takes points off the score, with a link to fix it in InfraFence; a world map of where this server's attacks came from (24 hours or 7 days); then the technical details (agent version, heartbeat, plan, AutoMode) |
-| Bans | Active bans; unban, or add the address to the allow list |
-| Allow list | Addresses that are never banned, from this server and from the dashboard; add and remove |
+| Bans | Active bans; unban, or add the address to the whitelist |
+| Whitelist | Addresses that are never banned, from this server and from the dashboard; add and remove |
 | Findings | Malware and file integrity findings |
 | Events | Recent security events, filtered by severity (all, warning and above, critical) |
 | Coexistence | Other security tools found (CSF, lfd, Imunify360, cPHulk, ModSecurity and its rule sets…) and how InfraFence works with each |
@@ -32,7 +32,7 @@ changes the firewall, ModSecurity or any other tool by itself.
 - **Access.** Registered with `acls=all`, and the CGI checks `Whostmgr::ACLS::hasroot()` again.
 - **Changes.** Unban, allow, remove and scan always show a confirmation page first. The change runs only on
   a POST that carries the session's WHM security token. A request from another site is refused.
-- **Input.** IP addresses are validated (IPv4 without leading zeros, IPv6 normalized). Allow-list notes
+- **Input.** IP addresses are validated (IPv4 without leading zeros, IPv6 normalized). Whitelist notes
   are limited to 200 bytes, with no control characters. Scans only accept document roots the agent
   itself listed as `scannable` (inside the account's home and owned by it).
 - **Scope.** The agent's replies cover the whole server (all accounts), so the plugin is for root only.

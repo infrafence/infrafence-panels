@@ -18,7 +18,7 @@ a container.
 ## Scope: server-wide data, root only
 
 Every reply from the agent covers the whole server: all accounts' sites, bans, events and findings, and the
-server's allow list. The agent has no notion of resellers or account owners. In v1 the plugin is therefore
+server's whitelist. The agent has no notion of resellers or account owners. In v1 the plugin is therefore
 for root (and users with the `all` privilege) only, and must never be reachable by resellers or cPanel users:
 
 - AppConfig registers it with `acls=all`, so WHM lists it only for those users.
@@ -60,11 +60,11 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
     install -o root -g root -m 0755 dev/mock-agent /usr/local/bin/infrafence-agent
     cp -r dev/fixtures dev/scenarios /usr/local/bin/
 
-- [ ] Every tab renders: Overview, Bans, Allow list, Findings, Events, Coexistence, Sites.
+- [ ] Every tab renders: Overview, Bans, Whitelist, Findings, Events, Coexistence, Sites.
 - [ ] Unban, Allow, Remove and Scan now each open a confirmation page first. Cancel goes back and changes nothing.
 - [ ] Confirming shows a green message (the mock does not keep state, so the lists do not change). Allowing `203.0.113.7` (banned) adds the note that the ban stays listed.
 - [ ] Unban `192.0.2.99` by editing the URL of a confirmation page: "This address is not banned on this server" appears in red.
-- [ ] Allow list: the dashboard entries (`203.0.113.20`, `10.0.0.0/8`) show "Managed in the dashboard" and no Remove button.
+- [ ] Whitelist: the dashboard entries (`203.0.113.20`, `10.0.0.0/8`) show "Managed in the dashboard" and no Remove button.
 - [ ] Security token: copy the confirmation form, change the `csrf` field (browser dev tools) and submit: "The security check failed" and HTTP 403.
 - [ ] Open a confirmation URL with a different `/cpsess…/` token: WHM itself refuses it.
 - [ ] `chmod 0777 /usr/local/bin/infrafence-agent` and reload: the page reports the binary is not trusted. Restore `0755`.
@@ -81,7 +81,7 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 - [ ] Turn monitor mode on in the dashboard: Overview shows "Monitor mode" and Bans says the bans are not enforced. Turn it off again.
 - [ ] Ban a test address from another machine (e.g. failed SSH logins), find it under Bans, unban it. The confirmation and the result say the lift is on this server only and until which date (the ban's expiry, at most 30 days). For a network or AutoMode ban, both also say the organization keeps the ban on its other servers. The dashboard shows the `panel_unban` event with actor `root`, and the ban is still in force on the organization's other servers.
 - [ ] Allow the server's own public address: the warning says it is one of the server's own addresses. Allow `127.0.0.1`: refused (loopback).
-- [ ] Add and remove an allow-list entry, with a note containing accents (e.g. "Ufficio Città").
+- [ ] Add and remove an whitelist entry, with a note containing accents (e.g. "Ufficio Città").
 - [ ] Sites: a document root outside the account's home (or not owned by it) shows "Cannot be scanned" and no Scan now button.
 - [ ] Scan now on a site; the dashboard shows the scan. Start a second one at once: "A malware scan is already running".
 - [ ] Overview, top to bottom: status row (state, score and grade, one-line verdict), the four figures, critical events and score items, the map, the technical details. With an agent that has `panel map` and `panel score`, the map and score match the server's page in the dashboard; "Fix these in InfraFence" opens the server there.
