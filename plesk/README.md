@@ -1,7 +1,8 @@
 # InfraFence for Plesk
 
 A Plesk Obsidian extension (18.0.60 or later, Linux) that shows the InfraFence agent running on the
-server, inside Plesk, for the administrator:
+server, inside Plesk, for the administrator. It is in early access; install guide on the site:
+[Plesk extension](https://infrafence.com/docs/plesk-extension).
 
 | Screen | What it shows | Actions |
 |---|---|---|
