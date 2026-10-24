@@ -11,11 +11,18 @@ Plugins that bring [InfraFence](https://infrafence.com) server protection into t
 cPanel servers. To join, write to info@infrafence.com with how many servers you run.
 
 **In development (Plesk):** the Plesk extension is not ready for production servers yet.
+
+**WHM Overview:** the WHM plugin opens on an Overview with the protection status, the security score and
+grade, the last 24 hours' critical events, a map of where the server's attacks came from (24 hours or
+7 days) and the key figures, in the language each WHM user picks; the Events screen filters by severity.
+The score and the map come from the InfraFence dashboard through the agent's `panel score` and `panel map`
+commands, which need agent 1.0.33 or later. See [whm/README.md](whm/README.md).
 Overview for hosting providers: [InfraFence for cPanel & WHM](https://infrafence.com/integrations/cpanel-whm);
 what the plugins show and need: [Hosting panels](https://infrafence.com/docs/hosting-panels).
 
 The plugins are a thin interface. They talk to the InfraFence agent already installed on the server,
-through `infrafence-agent panel …` (see [docs/panel-contract.md](docs/panel-contract.md)). They store no
+through `infrafence-agent panel …` (see [docs/panel-contract.md](docs/panel-contract.md); every field of every
+reply is in [docs/panel-json.md](docs/panel-json.md)). They store no
 InfraFence credentials, and they never change the firewall or ModSecurity by themselves.
 
 ## License

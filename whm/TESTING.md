@@ -61,6 +61,7 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
     cp -r dev/fixtures dev/scenarios /usr/local/bin/
 
 - [ ] Every tab renders: Overview, Bans, Whitelist, Findings, Events, Coexistence, Sites.
+- [ ] Overview: the score and grade, the critical events, the map (24 hours and 7 days) and the figures appear. (The stale, not-connected and old-agent states are covered by `make test`, with `MOCK_AGENT_MAP` / `MOCK_AGENT_SCORE`; the plugin runs the agent with a clean environment, so they cannot be set here.)
 - [ ] Unban, Allow, Remove and Scan now each open a confirmation page first. Cancel goes back and changes nothing.
 - [ ] Confirming shows a green message (the mock does not keep state, so the lists do not change). Allowing `203.0.113.7` (banned) adds the note that the ban stays listed.
 - [ ] Unban `192.0.2.99` by editing the URL of a confirmation page: "This address is not banned on this server" appears in red.
@@ -84,10 +85,10 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 - [ ] Add and remove an whitelist entry, with a note containing accents (e.g. "Ufficio Città").
 - [ ] Sites: a document root outside the account's home (or not owned by it) shows "Cannot be scanned" and no Scan now button.
 - [ ] Scan now on a site; the dashboard shows the scan. Start a second one at once: "A malware scan is already running".
-- [ ] Overview, top to bottom: status row (state, score and grade, one-line verdict), the four figures, critical events and score items, the map, the technical details. With an agent that has `panel map` and `panel score`, the map and score match the server's page in the dashboard; "Fix these in InfraFence" opens the server there.
+- [ ] Overview, top to bottom: status row (state, score and grade, one-line verdict), the four figures, critical events and score items, the map, the technical details. With agent 1.0.33 or later (it has `panel map` and `panel score`), the map and score match the server's page in the dashboard; "Fix these in InfraFence" opens the server there.
 - [ ] Map: 24 h and 7 days switch with plain links; hovering a country shows its name and count. Browser dev tools » Network: the page loads nothing from other sites. Nothing is reported by WHM's Content Security Policy in the console.
 - [ ] Block the dashboard from the server for over 5 minutes (e.g. a temporary firewall rule on the API host): the map and score stay, with "Last updated …". Remove the rule.
-- [ ] With an agent older than `panel map`: the Overview says to update the agent, without a red error.
+- [ ] With an agent older than 1.0.33 (no `panel map`): the Overview says to update the agent, without a red error.
 - [ ] Events: the Critical and Warning and above filters, and the Overview's "See them in Events" link, show the same events as the Overview's list.
 - [ ] Language: pick Deutsch in the plugin's selector (WHM itself in English): every tab is in German, and WHM's own menus stay English. Log in as another root-level WHM user: the plugin follows that user's WHM language. `ls -l /var/cpanel/infrafence-whm/prefs/`: `root.json`, 0600, owned by root; directory 0700. Choose "Same as WHM": the file is gone.
 - [ ] Language and CSRF: change the `csrf` field of the language form (dev tools) and submit: "The security check failed", HTTP 403, choice unchanged.

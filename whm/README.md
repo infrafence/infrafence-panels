@@ -14,6 +14,9 @@ site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 | Coexistence | Other security tools found (CSF, lfd, Imunify360, cPHulk, ModSecurity and its rule sets…) and how InfraFence works with each |
 | Sites | Accounts, domains and document roots with malware scan coverage; start a scan |
 
+The security score and the attack map need InfraFence agent 1.0.33 or later (`panel score`, `panel map`).
+With an older agent the rest of the plugin works and the Overview asks to update the agent.
+
 When the agent is not installed, the plugin says how to add the server in the InfraFence dashboard
 (Servers > Add server) and links to https://infrafence.com/add-server.
 
@@ -56,8 +59,9 @@ changes the firewall, ModSecurity or any other tool by itself.
   (`plugin/map/`, Natural Earth, public domain; attribution in `plugin/map/NOTICE`). The page loads nothing
   from other sites and needs no JavaScript. Country codes and counts from the agent are checked before they
   are drawn.
-- **Score and map from the dashboard.** `panel map` and `panel score` are answered by the agent from the
-  InfraFence dashboard, cached by the agent. With an older agent that does not know them, or before the
+- **Score and map from the dashboard.** `panel map` and `panel score` (agent 1.0.33 or later) are answered by
+  the agent from the InfraFence dashboard, cached by the agent (at most one request every 5 minutes for the
+  map and 15 minutes for the score). With an older agent that does not know them, or before the
   server has reached the dashboard, the Overview says so calmly; when the agent can only give its last copy,
   it shows when that was.
 
