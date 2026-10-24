@@ -15,6 +15,12 @@
 - `world-map/`: `generate.mjs` makes `plugin/map/world.json` and `countries.json` once (Node.js with
   world-atlas 2.0.2, d3-geo 3.1.1, topojson-client 3.1.0, the versions the InfraFence dashboard draws its
   map with) from `country-points.txt`, where each country's dot goes. Nothing of it runs on a server.
+- `event-types.txt`: the event types the agent sends to the dashboard. `t/50-i18n.t` checks that each one
+  has a name in all six `plugin/locale/*.json`, worded as the dashboard words it (`src/lib/event-docs.ts`
+  in the dashboard repository). Refresh it from the agent repository with
+  `git -C ../infrafence-agent fetch && sh dev/agent-event-types.sh ../infrafence-agent > dev/event-types.txt`,
+  review the diff and add the names of any new types. A type the plugin has no name for is shown as
+  "Security event" followed by the type.
 - `stub/master_templates/master.tmpl`: a stand-in for WHM's master template, for rendering outside cPanel.
 - `render`: renders every screen to static HTML. `screenshots.sh` also captures them.
 - `Dockerfile.test`: AlmaLinux image with the Perl modules used by the tests.
