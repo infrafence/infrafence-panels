@@ -49,6 +49,7 @@ t "templates installed"    test -f $D/templates/infrafence/main.tmpl
 t "icon installed"         test -f $D/addon_plugins/infrafence.png
 t "modules installed"      test -f $SHARE/lib/InfraFence/WHM/App.pm
 t "locales installed"      test -f $SHARE/locale/pt.json
+t "map installed"          test -f $SHARE/map/world.json -a -f $SHARE/map/countries.json -a -f $SHARE/map/NOTICE
 t "AppConfig registered"   test -f $APP
 t "AppConfig acls=all"     has $APP '^acls=all$'
 t "AppConfig url"          has $APP '^url=/cgi/infrafence/index.cgi$'
@@ -87,6 +88,20 @@ t "confirm page"   cgi GET "page=bans&action=unban&ip=203.0.113.7"
 t "confirm form"   has /tmp/cgi.out 'name="csrf" value="/cpsess7777777777"'
 t "bad token"      cgi POST "" "page=bans&action=unban&ip=203.0.113.7&confirm=1&csrf=/cpsess0000000000"
 t "403"            has /tmp/cgi.out '^Status: 403'
+t "map on overview" cgi GET ""
+t "map drawn"      has /tmp/cgi.out 'class="ifn-map-svg"'
+t "language"       cgi POST "" "page=bans&action=language&lang=it&csrf=%2Fcpsess7777777777"
+t "303"            has /tmp/cgi.out '^Status: 303'
+t "prefs file"     test -f /var/cpanel/infrafence-whm/prefs/root.json
+t "prefs 0600"     test "$(stat -c %a /var/cpanel/infrafence-whm/prefs/root.json)" = 600
+t "prefs dir 0700" test "$(stat -c %a /var/cpanel/infrafence-whm/prefs)" = 700
+t "now italian"    cgi GET "page=bans"
+t "italian text"   has /tmp/cgi.out 'lang="it"'
+t "other user"     env CGI_USER=reseller1 sh -c ". $HERE/cgi.sh; cgi GET page=bans"
+t "keeps the WHM language" has /tmp/cgi.out 'lang="en"'
+t "language bad token" cgi POST "" "page=bans&action=language&lang=de&csrf=/cpsess0000000000"
+t "403"            has /tmp/cgi.out '^Status: 403'
+t "language back to WHM" cgi POST "" "page=bans&action=language&lang=whm&csrf=%2Fcpsess7777777777"
 t "unban"          cgi POST "" "page=bans&action=unban&ip=203.0.113.7&confirm=1&csrf=%2Fcpsess7777777777"
 t "303"            has /tmp/cgi.out '^Status: 303'
 t "location"       has /tmp/cgi.out '^Location: index.cgi?page=bans&notice=unban_ok&ip=203.0.113.7'
@@ -122,6 +137,7 @@ t "CGI removed"       test ! -e $D/cgi/infrafence
 t "templates removed" test ! -e $D/templates/infrafence
 t "icon removed"      test ! -e $D/addon_plugins/infrafence.png
 t "share removed"     test ! -e $SHARE
+t "prefs removed"     test ! -e /var/cpanel/infrafence-whm
 t "unregistered"      test ! -e $APP
 t "agent untouched"   test -x /opt/infrafence/bin/infrafence-agent
 t "master template untouched" test -f $D/templates/master_templates/master.tmpl

@@ -12,7 +12,7 @@ my @PAGES = qw(overview bans allowlist findings events coexistence sites);
 sub no_raw_keys {
     my ( $html, $name ) = @_;
     # A missing translation shows up as its key, e.g. "bans.title".
-    my @raw = $html =~ />\s*((?:nav|alert|notice|error|overview|missing|list|col|action|bans|allow|findings|events|coex|coex_action|mode|sites|confirm|time|plan|automode|source|allow_source|kind|severity|finding_status|event|event_source|tool_kind|coverage|domain_type|unban)\.[a-z_.]+)\s*</g;
+    my @raw = $html =~ />\s*((?:nav|alert|notice|error|overview|missing|list|col|action|bans|allow|findings|events|coex|coex_action|mode|sites|confirm|time|plan|automode|source|allow_source|kind|severity|finding_status|event|event_source|tool_kind|coverage|domain_type|unban|lang|verdict|attention|score|map|attack_cat)\.[a-z_.]+)\s*</g;
     is_deeply( \@raw, [], "$name: no untranslated keys" ) or diag join ', ', @raw;
 }
 
@@ -31,6 +31,14 @@ for my $lang (qw(en it es fr de pt)) {
     {
         $html = render( run_app( lang => $lang, params => { action => $act->[0], %{ $act->[1] } } ) );
         no_raw_keys( $html, "$lang/confirm $act->[0]" );
+    }
+    for my $v (qw(stale not_connected old)) {
+        no_raw_keys( render( run_app( lang => $lang, map => $v, score => $v ) ), "$lang/overview map+score $v" );
+    }
+    no_raw_keys( render( run_app( lang => $lang, params => { range => '7d' } ) ), "$lang/overview 7d" );
+    no_raw_keys( render( run_app( lang => $lang, scenario => 'hostile' ) ), "$lang/overview hostile" );
+    for my $sev (qw(all warning critical)) {
+        no_raw_keys( render( run_app( lang => $lang, params => { page => 'events', severity => $sev } ) ), "$lang/events $sev" );
     }
     for my $scenario (qw(stopped empty restricted monitor)) {
         for my $page (@PAGES) {
@@ -123,6 +131,14 @@ for my $page ( @PAGES, 'confirm' ) {
     $html = render( run_app( scenario => 'hostile', params => \%params ) );
     my $body = ( $html =~ m{<div id="ifn".*}s )[0];
     $body =~ s{<script>\n\(function \(\) \{.*?</script>}{}s;    # the plugin's own script
+    # The plugin's own drawings (map, sparkline): only its shapes inside, then left out.
+    while ( $body =~ s{(<svg class="ifn-(?:map-svg|spark)[^"]*"[^>]*>)(.*?)</svg>}{}s ) {
+        my ( $open, $inner ) = ( $1, $2 );
+        unlike( $open, qr/\son[a-z]+=/i, "hostile $page: no handler on the plugin's svg" );
+        my @tags = $inner =~ /<([a-zA-Z]+)/g;
+        is_deeply( [ grep { !/\A(?:g|path|circle|polyline|title)\z/ } @tags ], [], "hostile $page: only shapes in the plugin's svg" );
+        unlike( $inner, qr/\son[a-z]+=|javascript:/i, "hostile $page: no handlers in the plugin's svg" );
+    }
     unlike( $body, qr/<(?:script|img|svg|iframe|b|i|u)[\s>]/i, "hostile $page: no injected elements" );
     unlike( $body, qr/["']\s*(?:on[a-z]+|autofocus)\b/i, "hostile $page: no injected attributes" );
     unlike( $body, qr/href="javascript:/i, "hostile $page: no javascript: links" );

@@ -19,6 +19,7 @@
 -%]
 [% INCLUDE 'infrafence/_style.tmpl' %]
 <div id="ifn" class="ifn" lang="[% L.lang | html %]">
+[% INCLUDE 'infrafence/_language.tmpl' %]
 [%- IF data.view == 'not_installed' %]
 [% INCLUDE 'infrafence/view_not_installed.tmpl' %]
 [%- ELSE %]
@@ -33,6 +34,7 @@
 [%- CASE 'coexistence' %][% INCLUDE 'infrafence/view_coexistence.tmpl' %]
 [%- CASE 'sites' %][% INCLUDE 'infrafence/view_sites.tmpl' %]
 [%- CASE 'confirm' %][% INCLUDE 'infrafence/view_confirm.tmpl' %]
+[%- CASE 'language' %]<p><a href="[% data.script | html %]?page=[% data.page | uri | html %]">[% L.t('lang.back') | html %]</a></p>
 [%- END %]
 [%- END %]
 <p class="ifn-foot text-muted">

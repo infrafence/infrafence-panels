@@ -54,7 +54,8 @@ is( $res->{data}{counts}{findings}, 2, 'findings still detected (not quarantined
 is( $res->{data}{counts}{events}, 5, 'events in the last 24 h' );
 ok( !defined $res->{data}{automode}, 'automode null' );
 is_deeply( [ grep { $_->[1] ne 'status' } @{ calls() } ],
-    [ [qw(panel bans --limit 1 --json)], [qw(panel findings --limit 500 --json)], [qw(panel events --since 24h --limit 500 --json)] ],
+    [ [qw(panel bans --limit 1 --json)], [qw(panel findings --limit 500 --json)], [qw(panel events --since 24h --limit 500 --json)],
+      [qw(panel map --hours 24 --json)], [qw(panel score --json)] ],
     'overview argv within the agent limits' );
 
 for my $case (

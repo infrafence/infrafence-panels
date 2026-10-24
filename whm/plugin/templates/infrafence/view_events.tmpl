@@ -2,6 +2,13 @@
   <h2>[% L.t('events.title') | html %]</h2>
   <p class="text-muted">[% L.t('events.intro') | html %]</p>
 </div>
+[%- IF data.sev_count.all %]
+<ul class="nav nav-pills ifn-pills" aria-label="[% L.t('col.severity') | html %]">
+[%- FOREACH k IN data.severities %]
+  <li[% IF k == data.severity %] class="active"[% END %]><a href="[% data.script | html %]?page=events&amp;severity=[% k | uri | html %]&amp;limit=[% data.limit | uri | html %]"[% IF k == data.severity %] aria-current="true"[% END %]>[% L.t('events.severity.' _ k) | html %] <span class="badge">[% data.sev_count.$k || 0 | html %]</span></a></li>
+[%- END %]
+</ul>
+[%- END %]
 [%- IF data.events.size %]
 [% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-events' %]
 <div class="table-responsive">
@@ -26,6 +33,8 @@
   </tbody>
 </table>
 </div>
+[%- ELSIF data.sev_count.all %]
+<div class="ifn-empty"><p>[% L.t('events.empty_filter') | html %]</p></div>
 [%- ELSIF !data.list_error %]
 <div class="ifn-empty"><p>[% L.t('events.empty') | html %]</p></div>
 [%- END %]
