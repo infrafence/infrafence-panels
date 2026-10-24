@@ -53,7 +53,7 @@ sub make_app {
             params  => $o{params} || {},
             token   => exists $o{token} ? $o{token} : TOKEN,
             actor   => exists $o{actor} ? $o{actor} : 'root',
-            host    => 'host07.hosting.example:2087',
+            host    => exists $o{host} ? $o{host} : 'host07.hosting.example:2087',
             origin  => $o{origin},
             referer => exists $o{referer} ? $o{referer} : 'https://host07.hosting.example:2087' . TOKEN . '/cgi/infrafence/index.cgi',
         },

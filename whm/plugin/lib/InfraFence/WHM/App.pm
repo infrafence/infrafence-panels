@@ -301,14 +301,33 @@ sub _csrf_ok {
     return 0 unless defined $token && length $token >= 8;
     return 0 unless const_eq( $token, defined $req->{params}{csrf} ? $req->{params}{csrf} : '' );
 
-    # When the browser says where the form came from, it must be this server.
-    my $host = lc( $req->{host} || '' );
+    # When the browser says where the form came from, it must be this server. cpsrvd passes
+    # HTTP_HOST without the port (emma.example.com, while the browser says :2087), so the names
+    # must match and the ports only when cpsrvd gives one; without one, the form must come from
+    # WHM's own ports (2087, 2086) or the default port of a whm.* proxy subdomain.
+    my ( $host, $port ) = _host_port( $req->{host} );
     for my $from ( $req->{origin}, $req->{referer} ) {
         next unless defined $from && length $from && $from ne 'null';
         my ($h) = $from =~ m{\Ahttps?://([^/?#]+)}i;
-        return 0 unless defined $h && length $host && lc $h eq $host;
+        my ( $from_host, $from_port ) = _host_port($h);
+        return 0 unless length $host && length $from_host && $from_host eq $host;
+        if ( length $port ) {
+            return 0 unless ( length $from_port ? $from_port : '' ) eq $port;
+        }
+        else {
+            return 0 unless !length $from_port || $from_port eq '2087' || $from_port eq '2086';
+        }
     }
     return 1;
+}
+
+# 'Host.Example:2087' -> ('host.example', '2087'); '[2001:db8::1]:2087' keeps the brackets.
+sub _host_port {
+    my ($hp) = @_;
+    return ( '', '' ) unless defined $hp && length $hp;
+    my ( $h, $p ) = lc($hp) =~ m{\A(\[[0-9a-f:.]+\]|[^:\[\]]+)(?::(\d{1,5}))?\z};
+    return ( '', '' ) unless defined $h;
+    return ( $h, defined $p ? $p : '' );
 }
 
 sub _notice {

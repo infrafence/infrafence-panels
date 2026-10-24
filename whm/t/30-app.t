@@ -180,6 +180,12 @@ for my $case (
     [ 'no session token', { params => { %unban, csrf => '' }, token => '' } ],
     [ 'foreign referer',  { params => { %unban, csrf => TOKEN }, referer => 'https://evil.example/x' } ],
     [ 'foreign origin',   { params => { %unban, csrf => TOKEN }, origin => 'https://evil.example' } ],
+    [ 'other port',       { params => { %unban, csrf => TOKEN }, referer => 'https://host07.hosting.example:2083/x' } ],
+    [ 'host without port, cPanel port',
+        { params => { %unban, csrf => TOKEN }, host => 'host07.hosting.example', referer => 'https://host07.hosting.example:2083/x' } ],
+    [ 'host without port, other name',
+        { params => { %unban, csrf => TOKEN }, host => 'host07.hosting.example', referer => 'https://evil.example:2087/x' } ],
+    [ 'no host',          { params => { %unban, csrf => TOKEN }, host => '' } ],
   )
 {
     my ( $name, $o ) = @$case;
@@ -187,6 +193,19 @@ for my $case (
     is( $res->{code}, 403, "$name: 403" );
     is( $res->{data}{errors}[0]{error}, 'csrf', "$name: csrf error" );
     is_deeply( mutating(), [], "$name: nothing changed" );
+}
+
+# cpsrvd passes HTTP_HOST without the port while the browser sends :2087 (seen on cPanel 138).
+for my $case (
+    [ 'host without port, referer :2087', { host => 'host07.hosting.example', referer => 'https://host07.hosting.example:2087' . TOKEN . '/cgi/infrafence/index.cgi' } ],
+    [ 'host without port, origin :2087',  { host => 'Host07.Hosting.Example', referer => undef, origin => 'https://host07.hosting.example:2087' } ],
+    [ 'whm proxy subdomain',              { host => 'whm.hosting.example', referer => 'https://whm.hosting.example/' . TOKEN . '/cgi/infrafence/index.cgi' } ],
+  )
+{
+    my ( $name, $o ) = @$case;
+    $res = run_app( method => 'POST', params => { %unban, csrf => TOKEN }, log => $log, %$o );
+    is( $res->{code}, 303, "$name: accepted" );
+    is_deeply( mutating(), [ [qw(panel unban 203.0.113.7 --actor root --json)] ], "$name: unban ran" );
 }
 
 $res = run_app( method => 'POST', params => { %unban, csrf => TOKEN }, actor => 'bad user', log => $log );
