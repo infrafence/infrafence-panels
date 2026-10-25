@@ -57,6 +57,7 @@ my $L = i18n('it');
 is( $L->t( 'notice.unban_ok', ip => '192.0.2.1' ) =~ /192\.0\.2\.1/ ? 1 : 0, 1, 'placeholder filled' );
 is( $L->t('no.such.key'), 'no.such.key', 'unknown key shows key' );
 is( $L->label( 'severity', 'weird' ), 'weird', 'unknown value shown as is' );
+is( $L->label( 'severity', { x => 1 } ), '', 'a non-text value is not shown' );
 is( $L->label( 'plan', $_->[0] ), $_->[1], "plan $_->[0]" ) for (
     [ 'free', 'Starter' ], [ 'starter', 'Starter' ], [ 'basic', 'Basic' ], [ 'pro', 'Pro' ],
     [ 'automode', 'AutoMode' ], [ 'enterprise', 'enterprise' ],

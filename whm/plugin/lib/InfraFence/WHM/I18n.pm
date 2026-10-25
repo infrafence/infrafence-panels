@@ -88,7 +88,7 @@ sub tn {
 # plugin does not know yet are shown as they are.
 sub label {
     my ( $self, $group, $value ) = @_;
-    return '' unless defined $value && length $value;
+    return '' unless defined $value && !ref $value && length $value;
     my $key = "$group.$value";
     return $self->has($key) ? $self->t($key) : $value;
 }
