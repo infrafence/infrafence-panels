@@ -29,6 +29,8 @@ my @screens = (
     [ 'overview-old-agent'     => { map => 'old', score => 'old' } ],
     [ 'overview-empty'         => { scenario => 'empty' } ],
     [ 'events-critical'        => { params => { page => 'events', severity => 'critical' } } ],
+    [ 'overview-resolved'      => { scenario => 'resolved' } ],
+    [ 'events-resolved'        => { scenario => 'resolved', params => { page => 'events' } } ],
     [ bans        => { params => { page => 'bans' } } ],
     [ allowlist   => { params => { page => 'allowlist' } } ],
     [ findings    => { params => { page => 'findings' } } ],

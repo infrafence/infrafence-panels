@@ -55,6 +55,13 @@ fi
 /usr/local/share/infrafence-whm
 
 %changelog
+* Sun Oct 25 2026 Infrafence <info@infrafence.com> - 1.0.2-1
+- Open or resolved: problems the agent (1.0.34 and later) reports as resolved,
+  such as a database port closed or a file quarantined, no longer count as
+  critical events or findings to review. The Overview lists the latest ones
+  with how and when they were resolved; the Events page has a State column
+  and an Open / Resolved / All filter. Older agents: every event is open.
+
 * Sun Oct 25 2026 Infrafence <info@infrafence.com> - 1.0.1-1
 - Included in the Basic, Pro and AutoMode plans. On Starter, while the
   subscription is not active, or before the plan is known, every page says so,

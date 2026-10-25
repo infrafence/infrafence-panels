@@ -8,13 +8,15 @@
 #
 # Environment:
 #   MOCK_AGENT_SCENARIO  default | stopped | empty | monitor | restricted | hostile
-#                        | starter | unpaid | unknown | paid
+#                        | resolved | starter | unpaid | unknown | paid
 #                        stopped: the agent is not running. status answers
 #                        status_agent_not_running.json; coexistence and sites
 #                        still answer (agent_running false); every other
 #                        command answers error_agent_not_running.json.
-#                        empty, monitor, restricted, hostile: replies from dev/scenarios/<name>/,
-#                        falling back to dev/fixtures/.
+#                        empty, monitor, restricted, hostile, resolved: replies from
+#                        dev/scenarios/<name>/, falling back to dev/fixtures/.
+#                        The default fixtures are from an agent before 1.0.34
+#                        (events and findings without `state`); resolved: from 1.0.34.
 #                        starter, unpaid, unknown, paid: the organization's plan and
 #                        protection in `status` (the rest from dev/fixtures/).
 #                        starter: plan "starter". unpaid: plan "basic", protection
@@ -90,7 +92,7 @@ sub fail { reply( { ok => $F, agent_running => $T, error => $_[0], message => $_
 
 sub fixture {
     my ($name) = @_;
-    my @dirs = $scenario =~ /\A(?:empty|hostile|monitor|restricted)\z/ ? ( "$scenarios/$scenario", $fixtures ) : ($fixtures);
+    my @dirs = $scenario =~ /\A(?:empty|hostile|monitor|restricted|resolved)\z/ ? ( "$scenarios/$scenario", $fixtures ) : ($fixtures);
     for my $dir (@dirs) {
         my $file = "$dir/$name.json";
         next unless -f $file;

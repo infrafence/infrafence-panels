@@ -44,7 +44,7 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
 
 ### 1. Install from the tarball, without the agent
 
-    tar xzf infrafence-whm-1.0.1.tar.gz && cd infrafence-whm-1.0.1
+    tar xzf infrafence-whm-1.0.2.tar.gz && cd infrafence-whm-1.0.2
     ./install.sh --check          # every line "ok"; nothing changed
     ./install.sh
     ./install.sh                  # again: same result, no errors
@@ -110,8 +110,8 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 
 ### 5. Packages
 
-    dnf install ./infrafence-whm-1.0.1-1.noarch.rpm    # or: apt install ./infrafence-whm_1.0.1_all.deb
-    dnf reinstall ./infrafence-whm-1.0.1-1.noarch.rpm
+    dnf install ./infrafence-whm-1.0.2-1.noarch.rpm    # or: apt install ./infrafence-whm_1.0.2_all.deb
+    dnf reinstall ./infrafence-whm-1.0.2-1.noarch.rpm
     dnf remove infrafence-whm
 
 - [ ] Registered after install, still registered after reinstall, unregistered and all files gone after removal.

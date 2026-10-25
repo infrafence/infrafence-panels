@@ -29,7 +29,7 @@ use InfraFence::WHM::Score ();
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
-our $VERSION = '1.0.1';
+our $VERSION = '1.0.2';
 
 our $SITE_URL       = 'https://infrafence.com';
 our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
@@ -56,6 +56,15 @@ my %SEV_RANK = ( critical => 4, high => 3, warning => 2, medium => 2, low => 1, 
 # The Events page's severity filter: the lowest severity rank shown.
 my %SEV_FILTER = ( all => 0, warning => 2, critical => 3 );
 my @SEV_FILTERS = qw(all warning critical);
+
+# Problem events and findings the agent says are resolved (agent 1.0.34 and
+# later: `state`, `resolved_at`, `resolved_how`; docs/panel-json.md) count
+# nowhere and leave "needs attention". Every other event, and every event of
+# an older agent, counts as before. The Events page's state filter: open
+# (anything not resolved), resolved, all. At most RESOLVED_MAX resolved
+# problems are listed on the Overview; the rest are on the Events page.
+my @STATE_FILTERS = qw(all open resolved);
+use constant RESOLVED_MAX => 3;
 
 # Where each action may be started from (the first one is the default) and
 # what it acts on.
@@ -582,7 +591,7 @@ sub _page_overview {
 
     my $findings = $self->_call( 'findings', '--limit', '500' );
     if ( $findings->{ok} ) {
-        $c{findings} = scalar grep { ref $_ eq 'HASH' && ( $_->{status} || '' ) eq 'detected' } @{ $findings->{findings} || [] };
+        $c{findings} = scalar grep { ref $_ eq 'HASH' && ( $_->{status} || '' ) eq 'detected' && !_resolved($_) } @{ $findings->{findings} || [] };
     }
 
     my $events = $self->_call( 'events', '--since', '24h', '--limit', '500' );
@@ -590,7 +599,8 @@ sub _page_overview {
         my @ev = grep { ref $_ eq 'HASH' } @{ ref $events->{events} eq 'ARRAY' ? $events->{events} : [] };
         $c{events}      = scalar @ev;
         $c{events_more} = @ev >= 500 ? 1 : 0;
-        $data->{attention} = _attention( \@ev, $L );
+        $data->{attention} = _attention( [ grep { !_resolved($_) } @ev ], $L );
+        $data->{attention}{resolved} = _resolved_recent( \@ev, $L );
         $c{critical} = $data->{attention}{critical};
         $c{warning}  = $data->{attention}{warning};
     }
@@ -639,6 +649,39 @@ sub _attention {
              filter => $n{critical} ? 'critical' : 'warning' };
 }
 
+# Whether the agent says this problem event or finding is resolved.
+sub _resolved {
+    my ($x) = @_;
+    return ref $x eq 'HASH' && defined $x->{state} && !ref $x->{state} && $x->{state} eq 'resolved' ? 1 : 0;
+}
+
+# The state shown for an event: resolved, open (also every event of an agent
+# without `state`), or '' for an event that is not a problem (state null).
+sub _state_of {
+    my ($e) = @_;
+    return 'resolved' if _resolved($e);
+    return 'open' if !exists $e->{state} || ( defined $e->{state} && !ref $e->{state} && $e->{state} eq 'open' );
+    return '';
+}
+
+# Problems of the last 24 hours (warning and above) that are resolved, the
+# most recently resolved first, one per subject: at most RESOLVED_MAX, and
+# how many there are.
+sub _resolved_recent {
+    my ( $events, $L ) = @_;
+    my ( %seen, @list );
+    for my $e ( map { $_->[1] } sort { $b->[0] <=> $a->[0] } map { [ $L->epoch( $_->{resolved_at} ) || 0, $_ ] } grep { _resolved($_) } @$events ) {
+        my $sev = defined $e->{severity} && !ref $e->{severity} ? $e->{severity} : '';
+        next unless ( $SEV_RANK{$sev} || 0 ) >= $SEV_FILTER{warning};
+        my $subject = defined $e->{subject} && !ref $e->{subject} ? $e->{subject} : '';
+        next if length $subject && $seen{$subject}++;
+        push @list, { %$e, map { $_ => ( defined $e->{$_} && !ref $e->{$_} ? $e->{$_} : undef ) } qw(resolved_at resolved_how) };
+    }
+    my $n = scalar @list;
+    splice @list, RESOLVED_MAX if @list > RESOLVED_MAX;
+    return { events => \@list, n => $n };
+}
+
 sub _page_bans {
     my ( $self, $data ) = @_;
     my $limit = valid_choice( $self->{request}{params}{limit}, \@BAN_LIMITS, $BAN_LIMITS[0] );
@@ -674,6 +717,10 @@ sub _page_findings {
 
     my $reply = $self->_call( 'findings', '--limit', $limit );
     my $all   = $self->_list( $data, $reply, 'findings' );
+    for my $f (@$all) {
+        $f->{state_view} = _resolved($f) ? 'resolved' : '';
+        ref $f->{$_} and delete $f->{$_} for qw(resolved_at resolved_how);
+    }
     my %count = ( all => scalar @$all );
     $count{ $_->{kind} || '' }++ for @$all;
     $data->{kind_count} = \%count;
@@ -686,19 +733,37 @@ sub _page_events {
     my $p     = $self->{request}{params};
     my $limit = valid_choice( $p->{limit}, \@EVENT_LIMITS, $EVENT_LIMITS[0] );
     my $sev   = valid_choice( $p->{severity}, \@SEV_FILTERS, 'all' );
+    my $state = valid_choice( $p->{state}, \@STATE_FILTERS, 'all' );
     $data->{limit}      = $limit;
     $data->{limits}     = [ sort { $a <=> $b } @EVENT_LIMITS ];
     $data->{severity}   = $sev;
     $data->{severities} = [@SEV_FILTERS];
+    $data->{state_filter} = $state;
+    $data->{states}       = [@STATE_FILTERS];
     my $all = $self->_list( $data, $self->_call( 'events', '--limit', $limit ), 'events' );
-    my %count = ( all => scalar @$all );
+    my $rank_of = sub { $SEV_RANK{ defined $_[0]{severity} && !ref $_[0]{severity} ? $_[0]{severity} : '' } || 0 };
+    my $in_state = sub { $state eq 'all' || ( $state eq 'resolved' ? 1 : 0 ) == _resolved( $_[0] ) };
+    # Each filter's counts are within the other filter.
+    my %count = ( all => 0 );
+    my %state_count = ( all => 0, open => 0, resolved => 0 );
     for my $e (@$all) {
-        my $rank = $SEV_RANK{ defined $e->{severity} && !ref $e->{severity} ? $e->{severity} : '' } || 0;
-        $count{warning}++  if $rank >= $SEV_FILTER{warning};
-        $count{critical}++ if $rank >= $SEV_FILTER{critical};
+        $e->{state_view} = _state_of($e);
+        ref $e->{$_} and delete $e->{$_} for qw(resolved_at resolved_how);
+        my $rank = $rank_of->($e);
+        if ( $in_state->($e) ) {
+            $count{all}++;
+            $count{warning}++  if $rank >= $SEV_FILTER{warning};
+            $count{critical}++ if $rank >= $SEV_FILTER{critical};
+        }
+        if ( $rank >= $SEV_FILTER{$sev} ) {
+            $state_count{all}++;
+            $state_count{ _resolved($e) ? 'resolved' : 'open' }++;
+        }
     }
-    $data->{sev_count} = \%count;
-    $data->{events}    = [ grep { ( $SEV_RANK{ defined $_->{severity} && !ref $_->{severity} ? $_->{severity} : '' } || 0 ) >= $SEV_FILTER{$sev} } @$all ];
+    $data->{sev_count}   = \%count;
+    $data->{state_count} = \%state_count;
+    $data->{any_events}  = scalar @$all;
+    $data->{events}      = [ grep { $rank_of->($_) >= $SEV_FILTER{$sev} && $in_state->($_) } @$all ];
 }
 
 sub _page_coexistence {

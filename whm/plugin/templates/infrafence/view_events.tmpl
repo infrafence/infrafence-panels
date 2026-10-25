@@ -2,10 +2,15 @@
   <h2>[% L.t('events.title') | html %]</h2>
   <p class="text-muted">[% L.t('events.intro') | html %]</p>
 </div>
-[%- IF data.sev_count.all %]
+[%- IF data.any_events %]
+<ul class="nav nav-pills ifn-pills" aria-label="[% L.t('col.state') | html %]">
+[%- FOREACH k IN data.states %]
+  <li[% IF k == data.state_filter %] class="active"[% END %]><a href="[% data.script | html %]?page=events&amp;state=[% k | uri | html %]&amp;severity=[% data.severity | uri | html %]&amp;limit=[% data.limit | uri | html %]"[% IF k == data.state_filter %] aria-current="true"[% END %]>[% L.t('events.state.' _ k) | html %] <span class="badge">[% data.state_count.$k || 0 | html %]</span></a></li>
+[%- END %]
+</ul>
 <ul class="nav nav-pills ifn-pills" aria-label="[% L.t('col.severity') | html %]">
 [%- FOREACH k IN data.severities %]
-  <li[% IF k == data.severity %] class="active"[% END %]><a href="[% data.script | html %]?page=events&amp;severity=[% k | uri | html %]&amp;limit=[% data.limit | uri | html %]"[% IF k == data.severity %] aria-current="true"[% END %]>[% L.t('events.severity.' _ k) | html %] <span class="badge">[% data.sev_count.$k || 0 | html %]</span></a></li>
+  <li[% IF k == data.severity %] class="active"[% END %]><a href="[% data.script | html %]?page=events&amp;severity=[% k | uri | html %]&amp;state=[% data.state_filter | uri | html %]&amp;limit=[% data.limit | uri | html %]"[% IF k == data.severity %] aria-current="true"[% END %]>[% L.t('events.severity.' _ k) | html %] <span class="badge">[% data.sev_count.$k || 0 | html %]</span></a></li>
 [%- END %]
 </ul>
 [%- END %]
@@ -17,6 +22,7 @@
     <th scope="col">[% L.t('col.time') | html %]</th>
     <th scope="col">[% L.t('col.event') | html %]</th>
     <th scope="col">[% L.t('col.severity') | html %]</th>
+    <th scope="col">[% L.t('col.state') | html %]</th>
     <th scope="col">[% L.t('col.source_ip') | html %]</th>
     <th scope="col">[% L.t('col.reported_by') | html %]</th>
   </tr></thead>
@@ -26,6 +32,10 @@
     <td class="ifn-nowrap"><time datetime="[% e.time | html %]">[% L.time(e.time) | html %]</time></td>
     <td>[% L.label('event', e.type) | html %]</td>
     <td><span class="label label-[% data.sev_class.${e.severity} || 'default' | html %]">[% L.label('severity', e.severity) | html %]</span></td>
+    <td>[% IF e.state_view == 'resolved' %]<span class="label label-success">[% L.t('state.resolved') | html %]</span>
+      <small class="ifn-detail ifn-state-resolved">[% IF e.resolved_how %][% L.label('resolved_how', e.resolved_how) | html %] &middot; [% END %]<time datetime="[% e.resolved_at | html %]">[% L.time(e.resolved_at) | html %]</time></small>
+      [%- ELSIF e.state_view == 'open' %][% L.t('state.open') | html %]
+      [%- ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
     <td class="ifn-ip">[% IF e.source_ip %][% e.source_ip | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
     <td>[% IF e.source %][% L.label('event_source', e.source) | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
   </tr>
@@ -35,7 +45,7 @@
 </div>
 [%- ELSIF data.gate %]
 <div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
-[%- ELSIF data.sev_count.all %]
+[%- ELSIF data.any_events %]
 <div class="ifn-empty"><p>[% L.t('events.empty_filter') | html %]</p></div>
 [%- ELSIF !data.list_error %]
 <div class="ifn-empty"><p>[% L.t('events.empty') | html %]</p></div>

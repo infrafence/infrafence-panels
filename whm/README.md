@@ -7,16 +7,26 @@ site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 
 | Screen | What it shows |
 |---|---|
-| Overview | At a glance: protection status, security score and grade, and whether anything needs attention; the key figures (attacks, critical events, bans, findings); the last 24 hours' critical events and what takes points off the score, with a link to fix it in InfraFence; a world map of where this server's attacks came from (24 hours or 7 days); then the technical details (agent version, heartbeat, plan, AutoMode) |
+| Overview | At a glance: protection status, security score and grade, and whether anything needs attention; the key figures (attacks, critical events, bans, findings); the last 24 hours' critical events still open (and the latest ones resolved) and what takes points off the score, with a link to fix it in InfraFence; a world map of where this server's attacks came from (24 hours or 7 days); then the technical details (agent version, heartbeat, plan, AutoMode) |
 | Bans | Active bans; unban, or add the address to the whitelist |
 | Whitelist | Addresses that are never banned, from this server and from the dashboard; add and remove |
-| Findings | Malware and file integrity findings |
-| Events | Recent security events, filtered by severity (all, warning and above, critical) |
+| Findings | Malware and file integrity findings, and whether each is resolved |
+| Events | Recent security events with their state (open, resolved), filtered by state and by severity (all, warning and above, critical) |
 | Coexistence | Other security tools found (CSF, lfd, Imunify360, cPHulk, ModSecurity and its rule sets…) and how InfraFence works with each |
 | Sites | Accounts, domains and document roots with malware scan coverage; start a scan |
 
 The security score and the attack map need InfraFence agent 1.0.33 or later (`panel score`, `panel map`).
 With an older agent the rest of the plugin works and the Overview asks to update the agent.
+
+**Open or resolved.** From agent 1.0.34, `panel events` and `panel findings` say whether each problem
+(a database port open to the internet, a changed system file, a risky PHP setting, malware...) is still open
+or resolved, and how: resolved in the dashboard (port closed, fix applied, marked as expected...) or fixed by
+the agent itself. Resolved problems no longer count as critical events or findings to review, and leave "Needs
+attention"; the Overview lists the three most recently resolved in the last 24 hours ("Resolved · port closed
+· 10:50 UTC") and links to the rest ("Show resolved (N)"). The Events page has a State column and an Open /
+Resolved / All filter. With an older agent every event is open, as before.
+
+![Overview with a resolved problem](docs/screenshots/en-overview-resolved.png)
 
 When the agent is not installed, the plugin says how to add the server in the InfraFence dashboard
 (Servers > Add server) and links to https://infrafence.com/add-server.
