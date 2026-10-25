@@ -2,7 +2,8 @@
 
 A Plesk Obsidian extension (18.0.60 or later, Linux) that shows the InfraFence agent running on the
 server, inside Plesk, for the administrator. It is in development and not ready for production servers yet; install guide on the site:
-[Plesk extension](https://infrafence.com/docs/plesk-extension).
+[Plesk extension](https://infrafence.com/docs/plesk-extension). Like the [WHM plugin](../whm/README.md), it will be
+included in the Basic, Pro and AutoMode plans (not Starter).
 
 | Screen | What it shows | Actions |
 |---|---|---|

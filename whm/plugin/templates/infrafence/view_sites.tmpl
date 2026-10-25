@@ -46,6 +46,8 @@
   [%- END %]
 </table>
 </div>
+[%- ELSIF data.gate %]
+<div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
 [%- ELSIF !data.list_error %]
 <div class="ifn-empty"><p>[% L.t('sites.empty') | html %]</p></div>
 [%- END %]

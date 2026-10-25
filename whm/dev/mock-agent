@@ -8,12 +8,26 @@
 #
 # Environment:
 #   MOCK_AGENT_SCENARIO  default | stopped | empty | monitor | restricted | hostile
+#                        | starter | unpaid | unknown | paid
 #                        stopped: the agent is not running. status answers
 #                        status_agent_not_running.json; coexistence and sites
 #                        still answer (agent_running false); every other
 #                        command answers error_agent_not_running.json.
 #                        empty, monitor, restricted, hostile: replies from dev/scenarios/<name>/,
 #                        falling back to dev/fixtures/.
+#                        starter, unpaid, unknown, paid: the organization's plan and
+#                        protection in `status` (the rest from dev/fixtures/).
+#                        starter: plan "starter". unpaid: plan "basic", protection
+#                        "disabled" (the dashboard refused the agent for 24 hours).
+#                        unknown: plan null (never synced, or an old dashboard).
+#                        paid: plan "basic", protection "active".
+#   MOCK_AGENT_GATE      old (default) | new. old: an agent before 1.0.34, whose `status`
+#                        carries plan and protection only and which answers every command.
+#                        new: `status` also carries entitled and entitlement, and every
+#                        other command answers plan_required, unpaid or unknown when the
+#                        plugin is not included.
+#   MOCK_AGENT_REFUSE    plan_required | unpaid | unknown: every command but `status`
+#                        answers this error (the plan changed after `status`).
 #   MOCK_AGENT_FIXTURES  fixtures directory (default: next to this script)
 #   MOCK_AGENT_NOW       the clock used by --since (default 2026-10-16T12:01:00Z,
 #                        just after the fixtures' newest time)
@@ -24,6 +38,9 @@
 #                        generated_at); not_connected: the dashboard was never reached;
 #                        old: an agent from before `panel map`/`panel score`
 #                        (unknown_command).
+#
+# Where the environment is cleared (the installed CGI), `mock.conf` next to this
+# script sets defaults for these variables, one NAME=value per line.
 
 use strict;
 use warnings;
@@ -31,6 +48,13 @@ use warnings;
 use File::Basename qw(dirname);
 use JSON::PP ();
 use Time::Local qw(timegm);
+
+if ( open my $conf, '<', dirname(__FILE__) . '/mock.conf' ) {
+    while (<$conf>) {
+        $ENV{$1} = $2 if /\A(MOCK_AGENT_[A-Z]+)=(\S*)\s*\z/ && !defined $ENV{$1};
+    }
+    close $conf;
+}
 
 my $JSON      = JSON::PP->new->canonical;
 my $fixtures  = $ENV{MOCK_AGENT_FIXTURES} || dirname(__FILE__) . '/fixtures';
@@ -152,8 +176,55 @@ if ( $command eq 'scan' ) {
 }
 
 my $stopped = $scenario eq 'stopped';
-if ( $command eq 'status' ) {
-    reply( fixture( $stopped ? 'status_agent_not_running' : 'status' ) );
+
+# The organization's plan and protection, as the agent reports them.
+my %PLAN = (
+    starter => { plan => 'starter' },
+    unpaid  => {
+        plan           => 'basic',
+        protection     => 'disabled',
+        connected      => $F,
+        last_heartbeat => '2026-10-15T07:59:00Z',
+        refused_since  => '2026-10-15T08:00:00Z',
+        disabled_at    => '2026-10-16T08:00:00Z',
+    },
+    unknown => { plan => undef, last_sync => undef },
+    paid    => { plan => 'basic' },
+);
+sub status {
+    my $r = fixture( $stopped ? 'status_agent_not_running' : 'status' );
+    if ( my $p = $PLAN{$scenario} ) {
+        $r->{protection} = 'active';
+        $r->{$_} = undef for qw(refused_since disabled_at);
+        $r->{$_} = $p->{$_} for keys %$p;
+    }
+    # Agent 1.0.34 and later: the plugin is included in the paid plans while
+    # protection is not switched off.
+    if ( ( $ENV{MOCK_AGENT_GATE} || 'old' ) eq 'new' ) {
+        my $plan = $r->{plan};
+        my $prot = defined $r->{protection} ? $r->{protection} : '';
+        $r->{entitlement} =
+            defined $plan && !( grep { $plan eq $_ } qw(basic pro automode) ) ? 'plan_required'
+          : $prot eq 'disabled'                                          ? 'unpaid'
+          : !defined $plan                                               ? 'unknown'
+          :                                                                'ok';
+        $r->{entitled} = $r->{entitlement} eq 'ok' ? $T : $F;
+    }
+    return $r;
+}
+reply( status() ) if $command eq 'status';
+
+my %GATE_MESSAGE = (
+    plan_required => 'the panel plugin is included in the Basic, Pro and AutoMode plans',
+    unpaid        => 'the subscription is not active: the panel plugin shows no data until it is',
+    unknown       => 'the plan has not been received from the InfraFence dashboard yet',
+);
+if ( my $code = $ENV{MOCK_AGENT_REFUSE} ) {
+    refuse( $code, $GATE_MESSAGE{$code} || $code );
+}
+if ( ( $ENV{MOCK_AGENT_GATE} || 'old' ) eq 'new' && !$stopped ) {
+    my $e = status()->{entitlement};
+    refuse( $e, $GATE_MESSAGE{$e} ) unless $e eq 'ok';
 }
 if ( $command eq 'coexistence' || $command eq 'sites' ) {
     my $r = fixture($command);

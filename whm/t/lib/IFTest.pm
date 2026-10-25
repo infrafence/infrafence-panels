@@ -31,6 +31,8 @@ sub mock_agent {
     $env{MOCK_AGENT_FAULT} = $o{fault} if $o{fault};
     $env{MOCK_AGENT_MAP}   = $o{map}   if $o{map};
     $env{MOCK_AGENT_SCORE} = $o{score} if $o{score};
+    $env{MOCK_AGENT_GATE}   = $o{gate}   if $o{gate};
+    $env{MOCK_AGENT_REFUSE} = $o{refuse} if $o{refuse};
     return InfraFence::WHM::Agent->new(
         bin          => exists $o{bin} ? $o{bin} : "$ROOT/dev/mock-agent",
         strict_owner => $o{strict_owner} || 0,

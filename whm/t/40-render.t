@@ -12,7 +12,7 @@ my @PAGES = qw(overview bans allowlist findings events coexistence sites);
 sub no_raw_keys {
     my ( $html, $name ) = @_;
     # A missing translation shows up as its key, e.g. "bans.title".
-    my @raw = $html =~ />\s*((?:nav|alert|notice|error|overview|missing|list|col|action|bans|allow|findings|events|coex|coex_action|mode|sites|confirm|time|plan|automode|source|allow_source|kind|severity|finding_status|event|event_source|tool_kind|coverage|domain_type|unban|lang|verdict|attention|score|map|attack_cat)\.[a-z_.]+)\s*</g;
+    my @raw = $html =~ />\s*((?:nav|alert|notice|error|overview|missing|list|col|action|bans|allow|findings|events|coex|coex_action|mode|sites|confirm|time|plan|automode|source|allow_source|kind|severity|finding_status|event|event_source|tool_kind|coverage|domain_type|unban|lang|verdict|attention|score|map|attack_cat|gate)\.[a-z_.]+)\s*</g;
     is_deeply( \@raw, [], "$name: no untranslated keys" ) or diag join ', ', @raw;
 }
 

@@ -7,13 +7,13 @@
   <input type="hidden" name="action" value="allow">
   <div class="form-group">
     <label for="ifn-allow-ip">[% L.t('allow.ip') | html %]</label>
-    <input type="text" id="ifn-allow-ip" name="ip" class="form-control input-sm ifn-mono" required maxlength="45" spellcheck="false" autocomplete="off" placeholder="203.0.113.10" value="[% data.form.ip | html %]">
+    <input type="text" id="ifn-allow-ip" name="ip" class="form-control input-sm ifn-mono" required maxlength="45" spellcheck="false" autocomplete="off" placeholder="203.0.113.10" value="[% data.form.ip | html %]"[% IF data.gate %] disabled[% END %]>
   </div>
   <div class="form-group">
     <label for="ifn-allow-note">[% L.t('allow.note') | html %]</label>
-    <input type="text" id="ifn-allow-note" name="note" class="form-control input-sm" maxlength="200" placeholder="[% L.t('allow.note_hint') | html %]">
+    <input type="text" id="ifn-allow-note" name="note" class="form-control input-sm" maxlength="200" placeholder="[% L.t('allow.note_hint') | html %]"[% IF data.gate %] disabled[% END %]>
   </div>
-  <button type="submit" class="btn btn-primary btn-sm">[% L.t('allow.add') | html %]</button>
+  <button type="submit" class="btn btn-primary btn-sm"[% IF data.gate %] disabled[% END %]>[% L.t('allow.add') | html %]</button>
 </form>
 [%- IF data.entries.size %]
 [% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-allow' %]
@@ -47,6 +47,8 @@
   </tbody>
 </table>
 </div>
+[%- ELSIF data.gate %]
+<div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
 [%- ELSIF !data.list_error %]
 <div class="ifn-empty"><p>[% L.t('allow.empty') | html %]</p></div>
 [%- END %]

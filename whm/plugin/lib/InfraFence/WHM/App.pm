@@ -11,6 +11,10 @@ package InfraFence::WHM::App;
 # confirmation page. The change runs on a POST with confirm=1 and a csrf field
 # that matches the WHM security token of the session.
 #
+# The plugin is part of the Basic, Pro and AutoMode plans. When the
+# organization is not entitled to it (see entitlement()), no data command is
+# called and no action runs: every page shows why, with zeros and empty lists.
+#
 # The agent's replies are described in docs/panel-json.md.
 
 use strict;
@@ -25,10 +29,18 @@ use InfraFence::WHM::Score ();
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
-our $VERSION = '1.0.0';
+our $VERSION = '1.0.1';
 
 our $SITE_URL       = 'https://infrafence.com';
 our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
+# Settings > Billing in the InfraFence dashboard.
+our $BILLING_URL    = 'https://infrafence.com/billing';
+
+# The plans that include the plugin, and why it is off otherwise: the values
+# of the agent's `entitlement` (agent 1.0.34 and later), which are also the
+# errors it answers every other command with when the plugin is off.
+our @PAID_PLANS = qw(basic pro automode);
+my @GATES       = qw(plan_required unpaid unknown);
 
 our @PAGES = qw(overview bans allowlist findings events coexistence sites);
 
@@ -120,19 +132,104 @@ sub run {
     return $self->_view( 'not_installed', $data ) unless $self->{agent}->installed;
 
     my $agent    = $self->{agent};
-    my $overview = $page eq 'overview' && !( defined $p->{action} && length $p->{action} );
+    my $acting   = defined $p->{action} && length $p->{action};
+    my $overview = $page eq 'overview' && !$acting;
     $agent->deadline( Time::HiRes::time() + $OVERVIEW_DEADLINE ) if $overview && $agent->can('deadline');
 
     $data->{status} = $agent->call('status');
+    my $gate = entitlement( $data->{status} );
+    $self->{gate} = $gate eq 'ok' ? undef : $gate;
 
-    if ( defined $p->{action} && length $p->{action} ) {
-        return $self->_action( $p->{action}, $page, $data );
-    }
-
-    $self->_notice($data);
-    my $res = $self->_page( $page, $data );
+    my $res = $self->_dispatch( $page, $data, $acting );
     $agent->deadline(undef) if $overview && $agent->can('deadline');
     return $res;
+}
+
+sub _dispatch {
+    my ( $self, $page, $data, $acting ) = @_;
+    my $p = $self->{request}{params};
+
+    # Not entitled: no data command is called and no action runs, whatever
+    # the request says (a forged POST included).
+    if ( $self->{gate} ) {
+        return $self->_gated( $acting ? _action_page( $p->{action}, $page ) : $page, $data, $acting ? 403 : 200 );
+    }
+
+    my $res;
+    if ($acting) {
+        $res = $self->_action( $p->{action}, $page, $data );
+    }
+    else {
+        $self->_notice($data);
+        $res = $self->_page( $page, $data );
+    }
+
+    # The agent refused a command because the plugin is not included (agent
+    # 1.0.34 and later): nothing it may have answered before is shown.
+    if ( my $denied = $self->{denied} ) {
+        $self->{gate} = $denied;
+        my $fresh = $self->_base( $acting ? _action_page( $p->{action}, $page ) : $page );
+        $fresh->{status} = $data->{status};
+        return $self->_gated( $fresh->{page}, $fresh, $acting ? 403 : 200 );
+    }
+    return $res;
+}
+
+# 'ok' when the plugin may show data and act, else why not: plan_required
+# (Starter, or any plan without the plugin), unpaid (protection switched off,
+# e.g. the subscription stopped) or unknown (the agent has no plan from the
+# dashboard yet, or did not answer). The agent's own `entitlement` wins when
+# it sends one; older agents send only `plan` and `protection`.
+sub entitlement {
+    my ($s) = @_;
+    return 'unknown' unless ref $s eq 'HASH' && $s->{ok} && $s->{agent_running};
+    my $e = $s->{entitlement};
+    return $e if defined $e && !ref $e && grep { $e eq $_ } 'ok', @GATES;
+
+    my $plan = defined $s->{plan} && !ref $s->{plan} && length $s->{plan} ? $s->{plan} : undef;
+    my $prot = defined $s->{protection} && !ref $s->{protection} ? $s->{protection} : '';
+    return 'plan_required' if defined $plan && !grep { $plan eq $_ } @PAID_PLANS;
+    return 'unpaid'        if $prot eq 'disabled';
+    return 'unknown'       if !defined $plan || ( exists $s->{entitled} && !$s->{entitled} );
+    return 'ok';
+}
+
+# Runs an agent command. Once the agent has refused one because the plugin is
+# not included, the following ones are not run.
+sub _call {
+    my ( $self, @cmd ) = @_;
+    return { ok => 0, error => $self->{denied}, message => '' } if $self->{denied};
+    my $r = $self->{agent}->call(@cmd);
+    $self->{denied} = $r->{error} if !$r->{ok} && defined $r->{error} && grep { $r->{error} eq $_ } @GATES;
+    return $r;
+}
+
+# The page an action belongs to (as _action chooses it).
+sub _action_page {
+    my ( $name, $page ) = @_;
+    my $spec = $ACTIONS{ defined $name ? $name : '' } or return $page;
+    return valid_choice( $page, $spec->{pages}, $spec->{pages}[0] );
+}
+
+# A page while the plugin is not included: the status, zeros and empty lists.
+sub _gated {
+    my ( $self, $page, $data, $code ) = @_;
+    $data->{gate} = $self->{gate};
+    $data->{page} = $page;
+    $data->{$_}   = [] for qw(bans entries findings events tools accounts);
+    $data->{form} = {};
+    if ( $page eq 'overview' && $self->_overview_state($data) && _running($data) ) {
+        $data->{counts}    = { map { $_ => 0 } qw(attacks critical bans findings events warning) };
+        $data->{attention} = { events => [], critical => 0, warning => 0, filter => 'warning' };
+        $data->{map}       = InfraFence::WHM::Map::view(
+            reply => { ok => 1, total => { attacks => 0 }, countries => [], categories => [] },
+            lang  => $self->{i18n}->lang,
+            dir   => $self->{map_dir},
+            range => $data->{range},
+        );
+        $data->{score} = { state => 'gated' };
+    }
+    return $self->_view( $page, $data, $code );
 }
 
 sub _base {
@@ -146,6 +243,7 @@ sub _base {
         version        => $VERSION,
         site_url       => $SITE_URL,
         add_server_url => $ADD_SERVER_URL,
+        billing_url    => $BILLING_URL,
         panel_names    => \%PANEL_NAMES,
         languages      => [ map { { code => $_->[0], name => $_->[1] } } @InfraFence::WHM::Prefs::LANGUAGES ],
         lang_choice    => $self->_lang_choice,
@@ -265,7 +363,7 @@ sub _action {
         }
     }
     else {
-        my $sites = $self->{agent}->call('sites');
+        my $sites = $self->_call('sites');
         unless ( $sites->{ok} ) {
             push @{ $data->{errors} }, $sites;
             return $self->_page( $page, $data );
@@ -308,7 +406,7 @@ sub _action {
     push @args, '--note', $act{note} if $name eq 'allow' && length $act{note};
     push @args, '--actor', $actor;
 
-    my $reply = $self->{agent}->call( $name, @args );
+    my $reply = $self->_call( $name, @args );
     if ( $reply->{ok} ) {
         return { code => 303, location => "index.cgi?page=$page&" . _notice_query( $name, \%act, $reply ) };
     }
@@ -341,7 +439,7 @@ sub _notice_query {
 # the agent's rule (the ban's expiry, or 30 days from now, whichever is first).
 sub _describe_ban {
     my ( $self, $act ) = @_;
-    my $reply = $self->{agent}->call( 'bans', '--limit', '500' );
+    my $reply = $self->_call( 'bans', '--limit', '500' );
     return unless $reply->{ok};
     my ($ban) = grep { ref $_ eq 'HASH' && defined $_->{ip} && ( valid_ip( $_->{ip} ) || '' ) eq $act->{ip} } @{ $reply->{bans} || [] };
     return unless $ban;
@@ -449,13 +547,16 @@ sub _automode {
     return 'unknown';
 }
 
-sub _page_overview {
+# The status row of the Overview; false when the agent did not answer.
+sub _overview_state {
     my ( $self, $data ) = @_;
     my $s = $data->{status};
-    return unless $s->{ok};
+    return 0 unless $s->{ok};
 
+    my $disabled = defined $s->{protection} && !ref $s->{protection} && $s->{protection} eq 'disabled';
     $data->{protection} =
         !$s->{agent_running}  ? 'stopped'
+      : $disabled             ? 'disabled'
       : $s->{suspended}       ? 'suspended'
       : !$s->{connected}      ? 'offline'
       : $s->{monitor_mode}    ? 'monitor'
@@ -465,21 +566,26 @@ sub _page_overview {
 
     my $range = valid_choice( $self->{request}{params}{range}, [ map { $_->[0] } @InfraFence::WHM::Map::RANGES ], '24h' );
     $data->{range} = $range;
+    return 1;
+}
 
+sub _page_overview {
+    my ( $self, $data ) = @_;
+    return unless $self->_overview_state($data);
     return unless _running($data);
-    my $agent = $self->{agent};
     my $L     = $self->{i18n};
+    my $range = $data->{range};
     my %c;
 
-    my $bans = $agent->call( 'bans', '--limit', '1' );
+    my $bans = $self->_call( 'bans', '--limit', '1' );
     $c{bans} = $bans->{total} if $bans->{ok};
 
-    my $findings = $agent->call( 'findings', '--limit', '500' );
+    my $findings = $self->_call( 'findings', '--limit', '500' );
     if ( $findings->{ok} ) {
         $c{findings} = scalar grep { ref $_ eq 'HASH' && ( $_->{status} || '' ) eq 'detected' } @{ $findings->{findings} || [] };
     }
 
-    my $events = $agent->call( 'events', '--since', '24h', '--limit', '500' );
+    my $events = $self->_call( 'events', '--since', '24h', '--limit', '500' );
     if ( $events->{ok} ) {
         my @ev = grep { ref $_ eq 'HASH' } @{ ref $events->{events} eq 'ARRAY' ? $events->{events} : [] };
         $c{events}      = scalar @ev;
@@ -490,18 +596,18 @@ sub _page_overview {
     }
     $data->{counts} = \%c;
 
-    my $map = $agent->call( 'map', '--hours', InfraFence::WHM::Map::range_hours($range) );
+    my $map = $self->_call( 'map', '--hours', InfraFence::WHM::Map::range_hours($range) );
     $data->{map} = InfraFence::WHM::Map::view( reply => $map, lang => $L->lang, dir => $self->{map_dir}, range => $range );
     # The key figure is always the last 24 hours, whatever window the map shows.
     if ( $range eq '24h' ) {
         $c{attacks} = $data->{map}{total} if defined $data->{map}{total};
     }
     else {
-        my $day = InfraFence::WHM::Map::view( reply => $agent->call( 'map', '--hours', 24 ), lang => $L->lang, dir => $self->{map_dir}, range => '24h' );
+        my $day = InfraFence::WHM::Map::view( reply => $self->_call( 'map', '--hours', 24 ), lang => $L->lang, dir => $self->{map_dir}, range => '24h' );
         $c{attacks} = $day->{total} if defined $day->{total};
     }
 
-    my $score = $agent->call('score');
+    my $score = $self->_call('score');
     $data->{score} = InfraFence::WHM::Score::view( reply => $score, number => sub { $L->number( $_[0] ) } );
 
     $data->{verdict} =
@@ -538,7 +644,7 @@ sub _page_bans {
     my $limit = valid_choice( $self->{request}{params}{limit}, \@BAN_LIMITS, $BAN_LIMITS[0] );
     $data->{limit}  = $limit;
     $data->{limits} = [ sort { $a <=> $b } @BAN_LIMITS ];
-    my $reply = $self->{agent}->call( 'bans', '--limit', $limit );
+    my $reply = $self->_call( 'bans', '--limit', $limit );
     $data->{bans}         = $self->_list( $data, $reply, 'bans' );
     $data->{total}        = $reply->{ok} && defined $reply->{total} ? $reply->{total} : scalar @{ $data->{bans} };
     $data->{monitor_mode} = $reply->{ok} && $reply->{monitor_mode} ? 1 : 0;
@@ -546,7 +652,7 @@ sub _page_bans {
 
 sub _page_allowlist {
     my ( $self, $data ) = @_;
-    my $reply = $self->{agent}->call('allowlist');
+    my $reply = $self->_call('allowlist');
     $data->{entries} = $self->_list( $data, $reply, 'allowlist' );
     $data->{form} ||= {};
     # Pre-fill the form from ?ip=, but not with the address a notice or a
@@ -566,7 +672,7 @@ sub _page_findings {
     $data->{kind}   = $kind;
     $data->{kinds}  = [@FINDING_KINDS];
 
-    my $reply = $self->{agent}->call( 'findings', '--limit', $limit );
+    my $reply = $self->_call( 'findings', '--limit', $limit );
     my $all   = $self->_list( $data, $reply, 'findings' );
     my %count = ( all => scalar @$all );
     $count{ $_->{kind} || '' }++ for @$all;
@@ -584,7 +690,7 @@ sub _page_events {
     $data->{limits}     = [ sort { $a <=> $b } @EVENT_LIMITS ];
     $data->{severity}   = $sev;
     $data->{severities} = [@SEV_FILTERS];
-    my $all = $self->_list( $data, $self->{agent}->call( 'events', '--limit', $limit ), 'events' );
+    my $all = $self->_list( $data, $self->_call( 'events', '--limit', $limit ), 'events' );
     my %count = ( all => scalar @$all );
     for my $e (@$all) {
         my $rank = $SEV_RANK{ defined $e->{severity} && !ref $e->{severity} ? $e->{severity} : '' } || 0;
@@ -597,14 +703,14 @@ sub _page_events {
 
 sub _page_coexistence {
     my ( $self, $data ) = @_;
-    my $reply = $self->{agent}->call('coexistence');
+    my $reply = $self->_call('coexistence');
     $data->{tools} = $self->_list( $data, $reply, 'tools' );
     $data->{mode}  = $reply->{mode} if $reply->{ok};
 }
 
 sub _page_sites {
     my ( $self, $data ) = @_;
-    my $reply = $self->{agent}->call('sites');
+    my $reply = $self->_call('sites');
     my $sites = $self->_list( $data, $reply, 'sites' );
     my ( %by, @order );
     for my $s (@$sites) {

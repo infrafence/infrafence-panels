@@ -78,12 +78,13 @@ $res = run_app( scenario => 'stopped' );
 is( $res->{data}{protection}, 'stopped', 'stopped' );
 ok( !$res->{data}{counts}, 'no counts while stopped' );
 
-$res = run_app( params => { page => 'bans' }, scenario => 'stopped' );
-is( $res->{data}{list_error}{error}, 'agent_not_running', 'list error while stopped' );
-$res = run_app( params => { page => 'sites' }, scenario => 'stopped' );
-ok( !$res->{data}{list_error}, 'sites still listed while stopped' );
-is( $res->{data}{site_count}, 4, 'sites while stopped' );
-ok( !defined $res->{data}{malware_scan_enabled}, 'scan setting unknown while stopped' );
+# A stopped agent does not know the organization's plan: nothing is listed.
+for my $page (qw(bans sites coexistence)) {
+    $res = run_app( params => { page => $page }, scenario => 'stopped', log => $log );
+    is( $res->{data}{gate}, 'unknown', "$page while stopped: plan unknown" );
+    is_deeply( [ map { $_->[1] } @{ calls() } ], ['status'], "$page while stopped: only status asked" );
+    ok( !$res->{data}{site_count} && !@{ $res->{data}{bans} }, "$page while stopped: nothing listed" );
+}
 
 $res = run_app( agent => mock_agent( bin => undef ) );
 is( $res->{data}{view}, 'not_installed', 'not installed' );

@@ -122,7 +122,7 @@ sub call {
         return _err('bad_reply') if $exit != 0;
         return $reply;
     }
-    $reply->{error}   = 'unknown' unless defined $reply->{error} && length $reply->{error};
+    $reply->{error}   = 'unspecified' unless defined $reply->{error} && length $reply->{error};
     $reply->{message} = ''        unless defined $reply->{message};
     return $reply;
 }

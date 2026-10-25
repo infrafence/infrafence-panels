@@ -105,6 +105,19 @@ t "language back to WHM" cgi POST "" "page=bans&action=language&lang=whm&csrf=%2
 t "unban"          cgi POST "" "page=bans&action=unban&ip=203.0.113.7&confirm=1&csrf=%2Fcpsess7777777777"
 t "303"            has /tmp/cgi.out '^Status: 303'
 t "location"       has /tmp/cgi.out '^Location: index.cgi?page=bans&notice=unban_ok&ip=203.0.113.7'
+echo "# 9b. a plan without the plugin: no data asked, a forged action never reaches the agent"
+printf 'MOCK_AGENT_SCENARIO=starter\nMOCK_AGENT_LOG=/tmp/mock-argv.log\n' > /opt/infrafence/bin/mock.conf
+rm -f /tmp/mock-argv.log
+t "starter overview" cgi GET ""
+t "plan banner"    has /tmp/cgi.out 'included in the Basic, Pro and AutoMode plans'
+t "forged unban"   cgi POST "" "page=bans&action=unban&ip=203.0.113.7&confirm=1&csrf=%2Fcpsess7777777777"
+t "403"            has /tmp/cgi.out '^Status: 403'
+t "agent asked"    test -s /tmp/mock-argv.log
+tnot "only status asked" grep -v '"status"' /tmp/mock-argv.log
+printf 'MOCK_AGENT_SCENARIO=unpaid\n' > /opt/infrafence/bin/mock.conf
+t "unpaid overview" cgi GET ""
+t "unpaid banner"  has /tmp/cgi.out 'subscription is not active'
+rm -f /opt/infrafence/bin/mock.conf /tmp/mock-argv.log
 (FAKE_ACL=reseller; cgi GET "")
 t "non-root user gets 403" has /tmp/cgi.out '^Status: 403'
 chmod 0777 /opt/infrafence/bin/infrafence-agent

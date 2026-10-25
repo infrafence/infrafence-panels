@@ -38,6 +38,8 @@
 [%- IF data.total > data.bans.size %]
 <p class="text-muted">[% L.t('list.limited', shown => L.number(data.bans.size), total => L.number(data.total)) | html %]</p>
 [%- END %]
+[%- ELSIF data.gate %]
+<div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
 [%- ELSIF !data.list_error %]
 <div class="ifn-empty"><p>[% L.t('bans.empty') | html %]</p></div>
 [%- END %]
