@@ -11,6 +11,15 @@
   [% L.t('alert.stopped.text') | html %]
   <code>systemctl status infrafence-agent</code>
 </div>
+[%- ELSIF data.gate %]
+[%- gate_tone = { plan_required => 'warning', unpaid => 'danger', unknown => 'info' } %]
+<div class="alert alert-[% gate_tone.${data.gate} || 'warning' | html %] ifn-gate" role="status">
+  <strong>[% L.t('gate.' _ data.gate _ '.title') | html %]</strong>
+  [% L.t('gate.' _ data.gate _ '.text', plan => L.label('plan', s.plan)) | html %]
+  [%- IF data.gate != 'unknown' %]
+  <a href="[% data.billing_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('gate.' _ data.gate _ '.link') | html %] <span aria-hidden="true">&#8599;</span></a>
+  [%- END %]
+</div>
 [%- END %]
 [%- IF data.notice %]
 [%- n = data.notice %]

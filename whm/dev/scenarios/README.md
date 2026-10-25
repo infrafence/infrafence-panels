@@ -5,5 +5,6 @@ Same field names and shapes; only the values change. A file missing here falls b
 - `monitor/`: monitor mode on (detections reported, nothing banned).
 - `restricted/`: a site whose document root does not belong to its account (`scannable: false`), a site
   without account or document root, and scheduled scans turned off.
-- `hostile/`: markup, quotes and `javascript:` links in every text field, and invalid country codes, counts,
+- `hostile/`: markup, quotes and `javascript:` links in every text field (`status` says `entitlement: "ok"` so
+  the plan, itself hostile, does not hide the pages), and invalid country codes, counts,
   score items and dates in `map` and `score`, for the escaping and validation tests.

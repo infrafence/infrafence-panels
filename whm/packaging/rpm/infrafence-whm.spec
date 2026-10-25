@@ -55,6 +55,12 @@ fi
 /usr/local/share/infrafence-whm
 
 %changelog
+* Sun Oct 25 2026 Infrafence <info@infrafence.com> - 1.0.1-1
+- Included in the Basic, Pro and AutoMode plans. On Starter, while the
+  subscription is not active, or before the plan is known, every page says so,
+  shows no data and the actions are refused; the agent is asked for nothing
+  but its status.
+
 * Sat Oct 24 2026 Infrafence <info@infrafence.com> - 1.0.0-1
 - First available release.
 

@@ -1,9 +1,9 @@
 # InfraFence for cPanel & WHM
 
 A WHM plugin for root: **WHM » Plugins » InfraFence**. It shows what the InfraFence agent on the server
-is doing and lets you act on it, inside WHM's own interface. It is available: install it from your
-InfraFence dashboard (Panels › cPanel & WHM) after creating an account at https://infrafence.com. Install
-guide on the site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
+is doing and lets you act on it, inside WHM's own interface. It is included in the **Basic, Pro and AutoMode**
+plans (not Starter): install it from your InfraFence dashboard (Panels › cPanel & WHM). Install guide on the
+site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 
 | Screen | What it shows |
 |---|---|
@@ -20,6 +20,22 @@ With an older agent the rest of the plugin works and the Overview asks to update
 
 When the agent is not installed, the plugin says how to add the server in the InfraFence dashboard
 (Servers > Add server) and links to https://infrafence.com/add-server.
+
+**Plans.** The plugin works when the organization's plan is Basic, Pro or AutoMode and protection is not
+switched off for non-payment. Otherwise every page says why, with all figures at 0, empty lists and map, no
+score, and the actions off:
+
+- Starter (or any plan without the plugin): "The InfraFence plugin is included in the Basic, Pro and AutoMode
+  plans", with a link to upgrade in the dashboard.
+- Subscription not active (protection `disabled`, after the 72-hour stop and 24 hours of refusals): "Your
+  InfraFence subscription is not active: the plugin shows no data until it is".
+- Plan not known yet (the agent has not synced, or the dashboard does not send it): "Waiting for the
+  InfraFence dashboard".
+
+The plugin decides from `panel status` (`plan`, `protection`; agent 1.0.33) and, from agent 1.0.34, the
+agent's own `entitlement`. Then it calls no other agent command, and refuses every action before it reaches
+the agent, a hand-made POST included (HTTP 403). An agent that refuses a command with `plan_required`,
+`unpaid` or `unknown` (1.0.34 and later) gets the same pages.
 
 ![Overview](docs/screenshots/en-overview.png)
 
@@ -105,8 +121,9 @@ or `apt remove infrafence-whm`. Uninstalling removes only the plugin, never the 
     make screenshots    # renders every screen with the mock agent and captures it
 
 `dev/mock-agent` answers the panel commands like the real agent, from `dev/fixtures/` (copies of the agent's
-own outputs). It also has a stopped agent, monitor mode, empty lists, hostile content for escaping tests, and
-faults (timeouts, invalid output).
+own outputs). It also has a stopped agent, monitor mode, empty lists, hostile content for escaping tests,
+the plans (`starter`, `unpaid`, `unknown`, `paid`), an agent that gates by plan (`MOCK_AGENT_GATE=new`) or
+refuses with `plan_required`, `unpaid` or `unknown` (`MOCK_AGENT_REFUSE`), and faults (timeouts, invalid output).
 [TESTING.md](TESTING.md) covers the checks on a real cPanel server.
 
 ### Releasing

@@ -7,10 +7,13 @@ Plugins that bring [InfraFence](https://infrafence.com) server protection into t
 | [`whm/`](whm/) | cPanel & WHM (WHM » Plugins) | available | [WHM plugin](https://infrafence.com/docs/whm-plugin) |
 | [`plesk/`](plesk/) | Plesk Obsidian extension | in development | [Plesk extension](https://infrafence.com/docs/plesk-extension) |
 
-**Available (WHM):** install it from your InfraFence dashboard (Panels › cPanel & WHM) after creating an
-account at https://infrafence.com. Developers can build the packages from source (see [whm/README.md](whm/README.md)).
+**Available (WHM):** included in the Basic, Pro and AutoMode plans (not Starter). Install it from your
+InfraFence dashboard (Panels › cPanel & WHM). On Starter, or when the subscription is no longer active, the
+plugin shows no data and its actions are off until the organization is on a paid plan again. Developers can
+build the packages from source (see [whm/README.md](whm/README.md)).
 
-**In development (Plesk):** the Plesk extension is not ready for production servers yet.
+**In development (Plesk):** the Plesk extension is not ready for production servers yet. It will be included
+in the same paid plans.
 
 **WHM Overview:** the WHM plugin opens on an Overview with the protection status, the security score and
 grade, the last 24 hours' critical events, a map of where the server's attacks came from (24 hours or

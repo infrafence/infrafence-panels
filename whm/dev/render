@@ -55,6 +55,11 @@ my @screens = (
     [ 'empty-coexistence' => { scenario => 'empty', params => { page => 'coexistence' } } ],
     [ 'empty-sites'      => { scenario => 'empty', params => { page => 'sites' } } ],
     [ 'restricted-sites' => { scenario => 'restricted', params => { page => 'sites' } } ],
+    [ 'overview-starter' => { scenario => 'starter' } ],
+    [ 'overview-unpaid'  => { scenario => 'unpaid' } ],
+    [ 'overview-unknown' => { scenario => 'unknown' } ],
+    [ 'starter-bans'     => { scenario => 'starter', params => { page => 'bans' } } ],
+    [ 'starter-allowlist' => { scenario => 'starter', params => { page => 'allowlist' } } ],
 );
 
 make_path("$out/addon_plugins");

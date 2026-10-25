@@ -7,6 +7,12 @@
   [docs/panel-json.md](../../docs/panel-json.md) describes every field.
 - `scenarios/`: test-only variants with the same shapes: `empty`, `monitor`, `restricted` and `hostile` (markup and
   quotes in every text field, for the escaping tests).
+- Plans: `MOCK_AGENT_SCENARIO=starter|unpaid|unknown|paid` changes `plan` and `protection` in `status`
+  (unpaid: protection `disabled`; unknown: plan `null`). `MOCK_AGENT_GATE=new` answers like agent 1.0.34
+  (`entitled` and `entitlement` in `status`, `plan_required`, `unpaid` or `unknown` for every other command when
+  the plugin is not included); `MOCK_AGENT_REFUSE=<code>` makes every command but `status` answer that error.
+  Where the environment is cleared (the installed CGI in `test/install/run.sh`), `mock.conf` next to the mock
+  sets these variables.
 - `mock-agent`: answers `infrafence-agent panel <command> … --json` from those files, the way the agent
   does: `--limit` 1–500, `--since`, `--actor` and `--note` checks, the agent's error codes and shapes, and a
   stopped agent (`status`, `coexistence` and `sites` still answer). `MOCK_AGENT_MAP` and `MOCK_AGENT_SCORE`
@@ -32,7 +38,8 @@
 - Error codes from the agent are translated by `error`. The English `message` (meant for logs) is shown only
   for a code the plugin has no text for.
   The plugin adds its own codes for problems on its side: `not_installed`, `agent_untrusted`, `timeout`,
-  `exec_failed`, `bad_reply`, `invalid_note`, `csrf`, `unknown_action`.
+  `exec_failed`, `bad_reply`, `invalid_note`, `csrf`, `unknown_action`, and `unspecified` for an error the
+  agent sent without a code.
 - `coexistence` texts are translated by `action_id`; an unknown id shows the agent's English `action`.
 - `status.automode` is passed through from the dashboard without a fixed shape: the plugin shows On/Off
   from an `enabled` field, or the value of `state`, `mode` or `status`, and "Not reported" when it is

@@ -44,7 +44,7 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
 
 ### 1. Install from the tarball, without the agent
 
-    tar xzf infrafence-whm-1.0.0.tar.gz && cd infrafence-whm-1.0.0
+    tar xzf infrafence-whm-1.0.1.tar.gz && cd infrafence-whm-1.0.1
     ./install.sh --check          # every line "ok"; nothing changed
     ./install.sh
     ./install.sh                  # again: same result, no errors
@@ -92,7 +92,9 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 - [ ] Events: the Critical and Warning and above filters, and the Overview's "See them in Events" link, show the same events as the Overview's list.
 - [ ] Language: pick Deutsch in the plugin's selector (WHM itself in English): every tab is in German, and WHM's own menus stay English. Log in as another root-level WHM user: the plugin follows that user's WHM language. `ls -l /var/cpanel/infrafence-whm/prefs/`: `root.json`, 0600, owned by root; directory 0700. Choose "Same as WHM": the file is gone.
 - [ ] Language and CSRF: change the `csrf` field of the language form (dev tools) and submit: "The security check failed", HTTP 403, choice unchanged.
-- [ ] Stop the agent (`systemctl stop infrafence-agent`): the yellow "not running" banner, "Not protected" on Overview, Bans/Findings/Events show the error, Coexistence and Sites still list. Start it again.
+- [ ] Stop the agent (`systemctl stop infrafence-agent`): the yellow "not running" banner, "Not protected" on Overview, and no data on any tab (a stopped agent does not know the plan). Start it again.
+- [ ] Move the organization to Starter in the dashboard and wait for the next sync: every tab shows "The InfraFence plugin is included in the Basic, Pro and AutoMode plans" with the upgrade link, the figures are 0, the lists and the map are empty, there is no score, and the whitelist form is disabled. Post a saved unban form (dev tools): HTTP 403, and the agent's log shows no unban. Move it back to a paid plan: the data comes back.
+- [ ] Unpaid: after the 72-hour stop and 24 hours of refusals (protection `disabled`), the red "Your InfraFence subscription is not active" banner and no data. Pay: the data comes back.
 - [ ] With CSF installed: Coexistence lists CSF and lfd with the translated explanation, and the plugin changed nothing in `/etc/csf`.
 
 ### 4. Upgrade and uninstall
@@ -108,8 +110,8 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 
 ### 5. Packages
 
-    dnf install ./infrafence-whm-1.0.0-1.noarch.rpm    # or: apt install ./infrafence-whm_1.0.0_all.deb
-    dnf reinstall ./infrafence-whm-1.0.0-1.noarch.rpm
+    dnf install ./infrafence-whm-1.0.1-1.noarch.rpm    # or: apt install ./infrafence-whm_1.0.1_all.deb
+    dnf reinstall ./infrafence-whm-1.0.1-1.noarch.rpm
     dnf remove infrafence-whm
 
 - [ ] Registered after install, still registered after reinstall, unregistered and all files gone after removal.

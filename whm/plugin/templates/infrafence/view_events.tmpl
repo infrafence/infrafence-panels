@@ -33,6 +33,8 @@
   </tbody>
 </table>
 </div>
+[%- ELSIF data.gate %]
+<div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
 [%- ELSIF data.sev_count.all %]
 <div class="ifn-empty"><p>[% L.t('events.empty_filter') | html %]</p></div>
 [%- ELSIF !data.list_error %]

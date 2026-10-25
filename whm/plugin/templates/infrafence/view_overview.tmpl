@@ -6,7 +6,7 @@
 [%- s = data.status -%]
 [%- IF s.ok %]
 [%- prot = data.protection %]
-[%- tone = { protected => 'ok', monitor => 'warning', offline => 'warning', suspended => 'critical', stopped => 'critical' } %]
+[%- tone = { protected => 'ok', monitor => 'warning', offline => 'warning', suspended => 'critical', disabled => 'critical', stopped => 'critical' } %]
 [%- sc = data.score %]
 [%- hb_age = L.age(s.last_heartbeat) %]
 <div class="ifn-status ifn-tone-[% tone.$prot || 'warning' | html %]">
@@ -70,6 +70,8 @@
       [%- END %]
     </ul>
     <p class="ifn-card-foot"><a href="[% data.script | html %]?page=events&amp;severity=[% a.filter | uri | html %]">[% L.t('attention.all') | html %] &rarr;</a></p>
+    [%- ELSIF data.gate %]
+    <p class="ifn-calm">[% L.t('gate.empty') | html %]</p>
     [%- ELSIF a %]
     <p class="ifn-calm">[% L.t('attention.empty') | html %]</p>
     [%- ELSE %]
@@ -106,7 +108,7 @@
     [%- END %]
     [%- IF sc.stale && sc.generated_at %]<p class="ifn-small text-muted">[% L.t('score.updated', ago => L.ago(sc.generated_at)) | html %]</p>[% END %]
     [%- ELSE %]
-    <p class="ifn-calm">[% L.t('score.' _ (sc.state || 'unavailable')) | html %]</p>
+    <p class="ifn-calm">[% IF data.gate %][% L.t('gate.empty') | html %][% ELSE %][% L.t('score.' _ (sc.state || 'unavailable')) | html %][% END %]</p>
     [%- END %]
   </section>
 </div>
@@ -136,7 +138,7 @@
         [%- END %]
         </g>
       </svg>
-      [%- IF m.state == 'empty' %]<p class="ifn-map-overlay">[% L.t('map.empty') | html %]</p>[% END %]
+      [%- IF m.state == 'empty' %]<p class="ifn-map-overlay">[% IF data.gate %][% L.t('gate.empty') | html %][% ELSE %][% L.t('map.empty') | html %][% END %]</p>[% END %]
     </div>
     [%- IF m.state == 'ok' %]
     <div class="ifn-map-side">
