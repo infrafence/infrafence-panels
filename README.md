@@ -21,7 +21,9 @@ such as a port closed, are shown as resolved and no longer counted; agent 1.0.34
 the server's attacks came from (24 hours or 7 days) and the key figures, in the language each WHM user picks;
 the Events screen filters by state (open, resolved) and by severity.
 The score and the map come from the InfraFence dashboard through the agent's `panel score` and `panel map`
-commands, which need agent 1.0.33 or later. See [whm/README.md](whm/README.md).
+commands, which need agent 1.0.33 or later. The plugin is updated from the dashboard (Panel plugins), not with
+the agent; from agent 1.0.35 and plugin 1.0.3 it says when a newer release is available. See
+[whm/README.md](whm/README.md).
 Overview for hosting providers: [InfraFence for cPanel & WHM](https://infrafence.com/integrations/cpanel-whm);
 what the plugins show and need: [Hosting panels](https://infrafence.com/docs/hosting-panels).
 

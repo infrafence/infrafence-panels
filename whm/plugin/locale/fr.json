@@ -86,7 +86,8 @@
   "overview.open": "Ouvrir dans InfraFence",
   "overview.count.bans": "Bannissements actifs",
   "overview.count.findings": "Détections à examiner",
-  "overview.version": "Version",
+  "overview.agent_version": "Version de l'agent",
+  "overview.plugin_version": "Version du plugin",
   "overview.service": "Service",
   "overview.running": "En marche",
   "overview.not_running": "Arrêté",
@@ -479,5 +480,8 @@
   "attention.resolved_how": "Résolu · {how} · {time}",
   "attention.resolved_at": "Résolu · {time}",
   "attention.show_resolved": "Afficher les résolus ({n})",
-  "attention.empty_resolved": "Rien d'ouvert : les problèmes des dernières 24 heures sont résolus."
+  "attention.empty_resolved": "Rien d'ouvert : les problèmes des dernières 24 heures sont résolus.",
+  "update.text": "Une nouvelle version du plugin est disponible ({version}).",
+  "update.link": "Mettez-le à jour depuis le tableau de bord InfraFence › Plugins de panneaux",
+  "update.label": "{version} disponible"
 }

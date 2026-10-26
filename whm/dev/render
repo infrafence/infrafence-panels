@@ -30,6 +30,10 @@ my @screens = (
     [ 'overview-empty'         => { scenario => 'empty' } ],
     [ 'events-critical'        => { params => { page => 'events', severity => 'critical' } } ],
     [ 'overview-resolved'      => { scenario => 'resolved' } ],
+    # Agent 1.0.35 and later: the latest plugin release, newer or the same.
+    [ 'overview-update'        => { plugin_latest => '1.0.4' } ],
+    [ 'overview-up-to-date'    => { plugin_latest => '1.0.3' } ],
+    [ 'bans-update'            => { plugin_latest => '1.0.4', params => { page => 'bans' } } ],
     [ 'events-resolved'        => { scenario => 'resolved', params => { page => 'events' } } ],
     [ bans        => { params => { page => 'bans' } } ],
     [ allowlist   => { params => { page => 'allowlist' } } ],

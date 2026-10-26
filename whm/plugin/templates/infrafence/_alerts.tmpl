@@ -21,6 +21,12 @@
   [%- END %]
 </div>
 [%- END %]
+[%- IF data.plugin_update && !data.gate %]
+<div class="alert alert-info ifn-update" role="status">
+  [% L.t('update.text', version => data.plugin_update) | html %]
+  <a href="[% data.panels_url | html %]" target="_blank" rel="noopener noreferrer">[% L.t('update.link') | html %] <span aria-hidden="true">&#8599;</span></a>
+</div>
+[%- END %]
 [%- IF data.notice %]
 [%- n = data.notice %]
 <div class="alert alert-success" role="status">

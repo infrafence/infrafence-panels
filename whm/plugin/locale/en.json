@@ -86,7 +86,8 @@
   "overview.open": "Open in InfraFence",
   "overview.count.bans": "Active bans",
   "overview.count.findings": "Findings to review",
-  "overview.version": "Version",
+  "overview.agent_version": "Agent version",
+  "overview.plugin_version": "Plugin version",
   "overview.service": "Service",
   "overview.running": "Running",
   "overview.not_running": "Not running",
@@ -479,5 +480,8 @@
   "attention.resolved_how": "Resolved · {how} · {time}",
   "attention.resolved_at": "Resolved · {time}",
   "attention.show_resolved": "Show resolved ({n})",
-  "attention.empty_resolved": "Nothing open: the problems of the last 24 hours are resolved."
+  "attention.empty_resolved": "Nothing open: the problems of the last 24 hours are resolved.",
+  "update.text": "A new version of the plugin is available ({version}).",
+  "update.link": "Update it from the InfraFence dashboard › Panel plugins",
+  "update.label": "{version} available"
 }

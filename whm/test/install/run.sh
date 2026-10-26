@@ -117,6 +117,18 @@ tnot "only status asked" grep -v '"status"' /tmp/mock-argv.log
 printf 'MOCK_AGENT_SCENARIO=unpaid\n' > /opt/infrafence/bin/mock.conf
 t "unpaid overview" cgi GET ""
 t "unpaid banner"  has /tmp/cgi.out 'subscription is not active'
+echo "# 9c. a newer plugin release (agent 1.0.35+): a notice on every page, never when gated"
+t "installed VERSION" test "$(cat $SHARE/VERSION)" = "$(cat "$WHM/VERSION")"
+printf 'MOCK_AGENT_PLUGIN_LATEST=9.0.0\n' > /opt/infrafence/bin/mock.conf
+t "update overview" cgi GET ""
+t "update notice"  has /tmp/cgi.out 'A new version of the plugin is available (9.0.0)'
+t "to Panel plugins" has /tmp/cgi.out 'href="https://infrafence.com/panels"'
+t "both versions"  has /tmp/cgi.out 'Plugin version'
+t "update bans"    cgi GET "page=bans"
+t "notice on bans" has /tmp/cgi.out 'class="alert alert-info ifn-update"'
+printf 'MOCK_AGENT_PLUGIN_LATEST=9.0.0\nMOCK_AGENT_SCENARIO=starter\n' > /opt/infrafence/bin/mock.conf
+t "starter with a release" cgi GET ""
+tnot "no notice when gated" grep -q 'ifn-update' /tmp/cgi.out
 rm -f /opt/infrafence/bin/mock.conf /tmp/mock-argv.log
 (FAKE_ACL=reseller; cgi GET "")
 t "non-root user gets 403" has /tmp/cgi.out '^Status: 403'
