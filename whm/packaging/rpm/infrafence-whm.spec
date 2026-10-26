@@ -55,6 +55,13 @@ fi
 /usr/local/share/infrafence-whm
 
 %changelog
+* Mon Oct 26 2026 Infrafence <info@infrafence.com> - 1.0.3-1
+- Technical details show the agent version and the plugin version as two
+  rows. With agent 1.0.35 and later, when a newer plugin is released, every
+  page says so, with a link to Panel plugins in the InfraFence dashboard,
+  where the plugin is updated (updating the agent never updates it). Nothing
+  is shown when the organization is not entitled, or with an older agent.
+
 * Sun Oct 25 2026 Infrafence <info@infrafence.com> - 1.0.2-1
 - Open or resolved: problems the agent (1.0.34 and later) reports as resolved,
   such as a database port closed or a file quarantined, no longer count as

@@ -28,6 +28,10 @@
 #                        new: `status` also carries entitled and entitlement, and every
 #                        other command answers plan_required, unpaid or unknown when the
 #                        plugin is not included.
+#   MOCK_AGENT_PLUGIN_LATEST  a version, or null: `status` carries plugin_installed
+#                        (this plugin's VERSION) and plugin_latest (this value), as
+#                        agent 1.0.35 and later send them. Unset: an older agent,
+#                        without either field.
 #   MOCK_AGENT_REFUSE    plan_required | unpaid | unknown: every command but `status`
 #                        answers this error (the plan changed after `status`).
 #   MOCK_AGENT_FIXTURES  fixtures directory (default: next to this script)
@@ -53,7 +57,7 @@ use Time::Local qw(timegm);
 
 if ( open my $conf, '<', dirname(__FILE__) . '/mock.conf' ) {
     while (<$conf>) {
-        $ENV{$1} = $2 if /\A(MOCK_AGENT_[A-Z]+)=(\S*)\s*\z/ && !defined $ENV{$1};
+        $ENV{$1} = $2 if /\A(MOCK_AGENT_[A-Z_]+)=(\S*)\s*\z/ && !defined $ENV{$1};
     }
     close $conf;
 }
@@ -212,7 +216,19 @@ sub status {
           :                                                                'ok';
         $r->{entitled} = $r->{entitlement} eq 'ok' ? $T : $F;
     }
+    # Agent 1.0.35 and later: the installed plugin and the latest release.
+    if ( defined( my $latest = $ENV{MOCK_AGENT_PLUGIN_LATEST} ) ) {
+        $r->{plugin_installed} = plugin_version();
+        $r->{plugin_latest}    = $latest eq 'null' || $stopped ? undef : $latest;
+    }
     return $r;
+}
+sub plugin_version {
+    open my $fh, '<', dirname(__FILE__) . '/../VERSION' or return undef;
+    my $v = <$fh>;
+    close $fh;
+    chomp $v if defined $v;
+    return $v;
 }
 reply( status() ) if $command eq 'status';
 

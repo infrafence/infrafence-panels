@@ -190,7 +190,9 @@
 <section class="ifn-details" aria-labelledby="ifn-details-title">
   <h2 class="ifn-section" id="ifn-details-title">[% L.t('overview.details') | html %]</h2>
   <dl class="ifn-facts">
-    <div><dt>[% L.t('overview.version') | html %]</dt><dd>[% s.version | html %]</dd></div>
+    <div><dt>[% L.t('overview.agent_version') | html %]</dt><dd>[% s.version | html %]</dd></div>
+    <div><dt>[% L.t('overview.plugin_version') | html %]</dt><dd>[% data.version | html %]
+      [%- IF data.plugin_update %] <span class="label label-info">[% L.t('update.label', version => data.plugin_update) | html %]</span>[% END %]</dd></div>
     <div><dt>[% L.t('overview.service') | html %]</dt><dd>
       [% IF s.agent_running %][% L.t('overview.running') | html %]
       [% ELSE %]<span class="label label-danger">[% L.t('overview.not_running') | html %]</span>[% END %]</dd></div>

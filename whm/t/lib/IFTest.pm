@@ -33,6 +33,7 @@ sub mock_agent {
     $env{MOCK_AGENT_SCORE} = $o{score} if $o{score};
     $env{MOCK_AGENT_GATE}   = $o{gate}   if $o{gate};
     $env{MOCK_AGENT_REFUSE} = $o{refuse} if $o{refuse};
+    $env{MOCK_AGENT_PLUGIN_LATEST} = $o{plugin_latest} if defined $o{plugin_latest};
     return InfraFence::WHM::Agent->new(
         bin          => exists $o{bin} ? $o{bin} : "$ROOT/dev/mock-agent",
         strict_owner => $o{strict_owner} || 0,

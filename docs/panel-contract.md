@@ -19,7 +19,7 @@ command, as root, and read JSON from stdout:
 
 | Command | What it returns or does |
 |---|---|
-| `status` | Agent version, running, last heartbeat, connected to InfraFence, agent id, org plan, AutoMode state (read only), dashboard URL for this server |
+| `status` | Agent version, running, last heartbeat, connected to InfraFence, agent id, org plan, AutoMode state (read only), dashboard URL for this server; from agent 1.0.35 also the installed plugin's version and the latest plugin release (`plugin_installed`, `plugin_latest`) |
 | `bans [--limit N]` | Active bans: ip, reason, source (local, network, automode, manual), created, expires |
 | `unban <ip> --actor <user>` | Lifts a ban on the server and reports it, so it is not reapplied |
 | `allow <ip> [--note …] --actor <user>` | Adds the address to the server's allow list (never banned again) and reports it |

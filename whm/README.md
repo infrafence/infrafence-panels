@@ -2,12 +2,12 @@
 
 A WHM plugin for root: **WHM » Plugins » InfraFence**. It shows what the InfraFence agent on the server
 is doing and lets you act on it, inside WHM's own interface. It is included in the **Basic, Pro and AutoMode**
-plans (not Starter): install it from your InfraFence dashboard (Panels › cPanel & WHM). Install guide on the
+plans (not Starter): install it from your InfraFence dashboard (Panel plugins › cPanel & WHM). Install guide on the
 site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 
 | Screen | What it shows |
 |---|---|
-| Overview | At a glance: protection status, security score and grade, and whether anything needs attention; the key figures (attacks, critical events, bans, findings); the last 24 hours' critical events still open (and the latest ones resolved) and what takes points off the score, with a link to fix it in InfraFence; a world map of where this server's attacks came from (24 hours or 7 days); then the technical details (agent version, heartbeat, plan, AutoMode) |
+| Overview | At a glance: protection status, security score and grade, and whether anything needs attention; the key figures (attacks, critical events, bans, findings); the last 24 hours' critical events still open (and the latest ones resolved) and what takes points off the score, with a link to fix it in InfraFence; a world map of where this server's attacks came from (24 hours or 7 days); then the technical details (agent version, plugin version, heartbeat, plan, AutoMode) |
 | Bans | Active bans; unban, or add the address to the whitelist |
 | Whitelist | Addresses that are never banned, from this server and from the dashboard; add and remove |
 | Findings | Malware and file integrity findings, and whether each is resolved |
@@ -94,7 +94,7 @@ changes the firewall, ModSecurity or any other tool by itself.
 
 ## Install
 
-Install it from your InfraFence dashboard: **Panels › cPanel & WHM** gives a signed install command to run as
+Install it from your InfraFence dashboard: **Panel plugins › cPanel & WHM** gives a signed install command to run as
 root on the server. You need an InfraFence account (https://infrafence.com). The
 installer checks the server first. If a check fails, nothing is changed. Services are never restarted.
 
@@ -110,6 +110,21 @@ or `dnf install ./infrafence-whm-VERSION-1.noarch.rpm` (AlmaLinux 8/9/10, CloudL
 
 To remove: `/usr/local/share/infrafence-whm/uninstall.sh` (tarball install), `dnf remove infrafence-whm`
 or `apt remove infrafence-whm`. Uninstalling removes only the plugin, never the agent.
+
+### Updating the plugin
+
+The plugin is updated from the dashboard, separately from the agent: updating the agent never updates the
+plugin. Open **Panel plugins › cPanel & WHM** again, copy a fresh install command (its link works for one hour)
+and run it as root; it replaces the plugin in place and keeps each WHM user's language.
+
+Technical details on the Overview show both versions, **Agent version** and **Plugin version**. With agent
+1.0.35 or later, `panel status` also carries `plugin_latest`, the latest release the dashboard knows of. When it
+is newer than this plugin, every page shows a calm notice, "A new version of the plugin is available (1.0.4).
+Update it from the InfraFence dashboard › Panel plugins", linking to https://infrafence.com/panels, and the
+Plugin version row says "1.0.4 available". Nothing is shown while the organization is not entitled (Starter,
+unpaid, plan unknown), or with an older agent.
+
+![Update notice on the Overview](docs/screenshots/en-overview-update.png)
 
 ### Files
 
@@ -133,7 +148,8 @@ or `apt remove infrafence-whm`. Uninstalling removes only the plugin, never the 
 `dev/mock-agent` answers the panel commands like the real agent, from `dev/fixtures/` (copies of the agent's
 own outputs). It also has a stopped agent, monitor mode, empty lists, hostile content for escaping tests,
 the plans (`starter`, `unpaid`, `unknown`, `paid`), an agent that gates by plan (`MOCK_AGENT_GATE=new`) or
-refuses with `plan_required`, `unpaid` or `unknown` (`MOCK_AGENT_REFUSE`), and faults (timeouts, invalid output).
+refuses with `plan_required`, `unpaid` or `unknown` (`MOCK_AGENT_REFUSE`), an agent that reports the latest
+plugin release (`MOCK_AGENT_PLUGIN_LATEST=<version>`), and faults (timeouts, invalid output).
 [TESTING.md](TESTING.md) covers the checks on a real cPanel server.
 
 ### Releasing

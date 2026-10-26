@@ -29,12 +29,15 @@ use InfraFence::WHM::Score ();
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
-our $VERSION = '1.0.2';
+our $VERSION = '1.0.3';
 
 our $SITE_URL       = 'https://infrafence.com';
 our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
 # Settings > Billing in the InfraFence dashboard.
 our $BILLING_URL    = 'https://infrafence.com/billing';
+# Panel plugins in the InfraFence dashboard: where the plugin is updated, with
+# a fresh signed install command (updating the agent never updates it).
+our $PANELS_URL     = 'https://infrafence.com/panels';
 
 # The plans that include the plugin, and why it is off otherwise: the values
 # of the agent's `entitlement` (agent 1.0.34 and later), which are also the
@@ -172,6 +175,8 @@ sub _dispatch {
         $self->_notice($data);
         $res = $self->_page( $page, $data );
     }
+    # Every page of an entitled organization says when a newer plugin is out.
+    $data->{plugin_update} = plugin_update( $data->{status} );
 
     # The agent refused a command because the plugin is not included (agent
     # 1.0.34 and later): nothing it may have answered before is shown.
@@ -201,6 +206,30 @@ sub entitlement {
     return 'unpaid'        if $prot eq 'disabled';
     return 'unknown'       if !defined $plan || ( exists $s->{entitled} && !$s->{entitled} );
     return 'ok';
+}
+
+# The newer plugin release the dashboard knows of (agent 1.0.35 and later:
+# `plugin_latest` of `panel status`), or undef: when it is missing, not a
+# version, or not newer than this plugin. Older agents send nothing.
+sub plugin_update {
+    my ($s) = @_;
+    return undef unless ref $s eq 'HASH' && $s->{ok} && $s->{agent_running};
+    my $latest = $s->{plugin_latest};
+    return undef unless defined $latest && !ref $latest && $latest =~ /\A[0-9]{1,6}(?:\.[0-9]{1,6}){1,3}\z/;
+    return version_cmp( $latest, $VERSION ) > 0 ? $latest : undef;
+}
+
+# Compares two versions number by number (1.0.10 is newer than 1.0.9); a
+# missing part counts as 0.
+sub version_cmp {
+    my ( $x, $y ) = @_;
+    my @x = split /\./, $x;
+    my @y = split /\./, $y;
+    for my $i ( 0 .. ( @x > @y ? $#x : $#y ) ) {
+        my $c = ( $x[$i] || 0 ) <=> ( $y[$i] || 0 );
+        return $c if $c;
+    }
+    return 0;
 }
 
 # Runs an agent command. Once the agent has refused one because the plugin is
@@ -253,6 +282,7 @@ sub _base {
         site_url       => $SITE_URL,
         add_server_url => $ADD_SERVER_URL,
         billing_url    => $BILLING_URL,
+        panels_url     => $PANELS_URL,
         panel_names    => \%PANEL_NAMES,
         languages      => [ map { { code => $_->[0], name => $_->[1] } } @InfraFence::WHM::Prefs::LANGUAGES ],
         lang_choice    => $self->_lang_choice,

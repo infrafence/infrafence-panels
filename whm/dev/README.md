@@ -11,6 +11,8 @@
   (unpaid: protection `disabled`; unknown: plan `null`). `MOCK_AGENT_GATE=new` answers like agent 1.0.34
   (`entitled` and `entitlement` in `status`, `plan_required`, `unpaid` or `unknown` for every other command when
   the plugin is not included); `MOCK_AGENT_REFUSE=<code>` makes every command but `status` answer that error.
+  `MOCK_AGENT_PLUGIN_LATEST=<version>|null` answers like agent 1.0.35: `status` carries `plugin_installed`
+  (this plugin's `VERSION`) and `plugin_latest`.
   Where the environment is cleared (the installed CGI in `test/install/run.sh`), `mock.conf` next to the mock
   sets these variables.
 - `mock-agent`: answers `infrafence-agent panel <command> … --json` from those files, the way the agent
