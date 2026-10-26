@@ -24,8 +24,8 @@ command, as root, and read JSON from stdout:
 | `unban <ip> --actor <user>` | Lifts a ban on the server and reports it, so it is not reapplied |
 | `allow <ip> [--note …] --actor <user>` | Adds the address to the server's allow list (never banned again) and reports it |
 | `allowlist` / `disallow <ip> --actor <user>` | Lists or removes allow-list entries |
-| `findings [--limit N]` | Recent malware and file-integrity findings: path, kind, severity, status, detected |
-| `events [--limit N] [--since …]` | Recent security events (type, severity, source ip, time) |
+| `findings [--limit N]` | Recent malware and file-integrity findings: path, kind, severity, status, detected; from agent 1.0.34 also subject and state (open, resolved, with when and how) |
+| `events [--limit N] [--since …]` | Recent security events (type, severity, source ip, time); from agent 1.0.34 also the subject and, for problem events, the state (open, resolved, with when and how) |
 | `coexistence` | Other security tools found, and what the agent does about each: CSF/lfd, Imunify360, cPHulk, fail2ban, Plesk Firewall, the ModSecurity vendors and rulesets in use, BitNinja, Monarx. `mode` is `coexist` (observe, never fight over iptables) or `primary` |
 | `sites` | Hosting accounts and domains seen on the server, with their document roots and scan coverage |
 | `scan <path> --actor <user>` | Queues a malware scan of one document root |

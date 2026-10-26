@@ -39,7 +39,7 @@
   <a class="ifn-figure" href="#ifn-map">
     <span class="ifn-figure-n">[% IF c.attacks.defined %][% L.number(c.attacks) | html %][% ELSE %]&ndash;[% END %]</span>
     <span class="ifn-figure-l">[% L.t('overview.count.attacks') | html %]</span></a>
-  <a class="ifn-figure[% IF c.critical %] ifn-figure-critical[% END %]" href="[% data.script | html %]?page=events&amp;severity=critical">
+  <a class="ifn-figure[% IF c.critical %] ifn-figure-critical[% END %]" href="[% data.script | html %]?page=events&amp;severity=critical&amp;state=open">
     <span class="ifn-figure-n">[% IF c.critical.defined %][% L.number(c.critical) | html %][% ELSE %]&ndash;[% END %]</span>
     <span class="ifn-figure-l">[% L.t('overview.count.critical') | html %]</span></a>
   <a class="ifn-figure" href="[% data.script | html %]?page=bans">
@@ -69,13 +69,32 @@
       </li>
       [%- END %]
     </ul>
-    <p class="ifn-card-foot"><a href="[% data.script | html %]?page=events&amp;severity=[% a.filter | uri | html %]">[% L.t('attention.all') | html %] &rarr;</a></p>
+    <p class="ifn-card-foot"><a href="[% data.script | html %]?page=events&amp;severity=[% a.filter | uri | html %]&amp;state=open">[% L.t('attention.all') | html %] &rarr;</a></p>
     [%- ELSIF data.gate %]
     <p class="ifn-calm">[% L.t('gate.empty') | html %]</p>
+    [%- ELSIF a.resolved.n %]
+    <p class="ifn-calm">[% L.t('attention.empty_resolved') | html %]</p>
     [%- ELSIF a %]
     <p class="ifn-calm">[% L.t('attention.empty') | html %]</p>
     [%- ELSE %]
     <p class="ifn-calm">[% L.t('error.list') | html %]</p>
+    [%- END %]
+    [%- IF a.resolved.n %]
+    [%# Problems resolved in the last 24 hours: a few compact lines, the rest on the Events page. %]
+    <ul class="ifn-events ifn-resolved-list" aria-label="[% L.t('attention.resolved') | html %]">
+      [%- FOREACH e IN a.resolved.events %]
+      <li>
+        <span class="ifn-sev ifn-sev-muted">[% L.label('severity', e.severity) | html %]</span>
+        <span class="ifn-event-name">[% L.label('event', e.type) | html %]</span>
+        <span class="ifn-resolved-line" title="[% L.time(e.resolved_at) | html %]">
+          [%- IF e.resolved_how %][% L.t('attention.resolved_how', how => L.label('resolved_how', e.resolved_how), time => L.clock(e.resolved_at)) | html %]
+          [%- ELSE %][% L.t('attention.resolved_at', time => L.clock(e.resolved_at)) | html %][% END %]</span>
+      </li>
+      [%- END %]
+    </ul>
+    [%- IF a.resolved.n > a.resolved.events.size %]
+    <p class="ifn-card-foot"><a href="[% data.script | html %]?page=events&amp;state=resolved">[% L.t('attention.show_resolved', n => L.number(a.resolved.n)) | html %]</a></p>
+    [%- END %]
     [%- END %]
   </section>
 

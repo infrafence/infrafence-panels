@@ -16,8 +16,10 @@ build the packages from source (see [whm/README.md](whm/README.md)).
 in the same paid plans.
 
 **WHM Overview:** the WHM plugin opens on an Overview with the protection status, the security score and
-grade, the last 24 hours' critical events, a map of where the server's attacks came from (24 hours or
-7 days) and the key figures, in the language each WHM user picks; the Events screen filters by severity.
+grade, the last 24 hours' critical events still open (problems resolved in the dashboard or by the agent,
+such as a port closed, are shown as resolved and no longer counted; agent 1.0.34 or later), a map of where
+the server's attacks came from (24 hours or 7 days) and the key figures, in the language each WHM user picks;
+the Events screen filters by state (open, resolved) and by severity.
 The score and the map come from the InfraFence dashboard through the agent's `panel score` and `panel map`
 commands, which need agent 1.0.33 or later. See [whm/README.md](whm/README.md).
 Overview for hosting providers: [InfraFence for cPanel & WHM](https://infrafence.com/integrations/cpanel-whm);

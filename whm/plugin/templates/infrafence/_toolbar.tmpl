@@ -3,6 +3,7 @@
   <input type="hidden" name="page" value="[% data.page | html %]">
   [%- IF data.kind %]<input type="hidden" name="kind" value="[% data.kind | html %]">[% END %]
   [%- IF data.severity %]<input type="hidden" name="severity" value="[% data.severity | html %]">[% END %]
+  [%- IF data.state_filter %]<input type="hidden" name="state" value="[% data.state_filter | html %]">[% END %]
   <div class="form-group">
     <label class="sr-only" for="ifn-filter">[% L.t('list.filter') | html %]</label>
     <input type="search" id="ifn-filter" class="form-control input-sm" placeholder="[% L.t('list.filter') | html %]" data-ifn-filter="[% table | html %]" autocomplete="off">

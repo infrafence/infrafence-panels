@@ -175,7 +175,9 @@ SKIP: {
     like( $html, qr{2 critical events in the last 24 hours\.}, 'verdict' );
     like( $html, qr{Critical: 2 · Warning: 2}, 'attention counts' );
     like( $html, qr{SQL injection attempt <span class="ifn-ip text-muted">from 198\.51\.100\.23}, 'event name and address' );
-    like( $html, qr{href="index\.cgi\?page=events&amp;severity=critical">See them in Events}, 'link to filtered events' );
+    like( $html, qr{href="index\.cgi\?page=events&amp;severity=critical&amp;state=open">See them in Events}, 'link to filtered events' );
+    like( $html, qr{href="index\.cgi\?page=events&amp;severity=critical&amp;state=open">\s*<span class="ifn-figure-n">2}, 'figure links to open critical events' );
+    unlike( $html, qr{<ul class="ifn-events ifn-resolved-list"}, 'older agent: nothing resolved' );
 
     $html = render( run_app( map => 'stale', score => 'stale' ) );
     like( $html, qr{Last updated 2 h ago}, 'stale note' );
@@ -193,8 +195,79 @@ SKIP: {
     $html = render( run_app( scenario => 'hostile' ) );
     like( $html, qr{Security event <code>&lt;script&gt;}, 'unknown event type shown as escaped code' );
     $html = render( run_app( params => { page => 'events', severity => 'critical' } ) );
-    like( $html, qr{class="active"><a href="index\.cgi\?page=events&amp;severity=critical&amp;limit=100" aria-current="true">Critical <span class="badge">2}, 'events filter pills' );
+    like( $html, qr{class="active"><a href="index\.cgi\?page=events&amp;severity=critical&amp;state=all&amp;limit=100" aria-current="true">Critical <span class="badge">2}, 'events filter pills' );
     like( $html, qr{name="severity" value="critical"}, 'filter kept by the limit form' );
+    like( $html, qr{name="state" value="all"}, 'state filter kept by the limit form' );
+    like( $html, qr{<td>Open</td>}, 'older agent: events open' );
+
+    # Agent 1.0.34: resolved problems.
+    $html = render( run_app( scenario => 'resolved' ) );
+    like( $html, qr{1 critical event in the last 24 hours\.}, 'resolved: verdict counts open only' );
+    like( $html, qr{Critical: 1 · Warning: 2}, 'resolved: attention counts open only' );
+    my ($list) = $html =~ m{<ul class="ifn-events ifn-resolved-list"[^>]*>(.*?)</ul>}s;
+    like( $list, qr{Database reachable from the internet</span>\s*<span class="ifn-resolved-line" title="2026-10-16 10:50 UTC">Resolved · port closed · 10:50 UTC</span>}, 'resolved: db_exposed, green line' );
+    like( $list, qr{Resolved · file quarantined · 11:10 UTC}, 'resolved: quarantined' );
+    like( $list, qr{Resolved · marked as expected · 11:40 UTC}, 'resolved: marked as expected' );
+    unlike( $list, qr{sshd_config|10:45}, 'resolved: at most 3 listed' );
+    like( $html, qr{href="index\.cgi\?page=events&amp;state=resolved">Show resolved \(4\)</a>}, 'resolved: link to the rest' );
+    my ($open) = $html =~ m{<ul class="ifn-events">(.*?)</ul>}s;
+    unlike( $open, qr{Database reachable|Malware written}, 'resolved: not in the open list' );
+    $html = render( run_app( scenario => 'resolved', lang => 'it' ) );
+    like( $html, qr{Risolto · porta chiusa · 10:50 UTC}, 'resolved: Italian' );
+    like( $html, qr{Mostra risolti \(4\)}, 'resolved: Italian link' );
+    $html = render( run_app( scenario => 'resolved', params => { page => 'events', state => 'resolved' } ) );
+    like( $html, qr{<span class="label label-success">Resolved</span>\s*<small class="ifn-detail ifn-state-resolved">port closed &middot; <time datetime="2026-10-16T10:50:00Z">2026-10-16 10:50 UTC</time>}, 'events: resolved state and how' );
+    like( $html, qr{class="active"><a href="index\.cgi\?page=events&amp;state=resolved&amp;severity=all&amp;limit=100" aria-current="true">Resolved <span class="badge">4}, 'events: state pills' );
+    $html = render( run_app( scenario => 'resolved', params => { page => 'findings' } ) );
+    like( $html, qr{Detected <span class="label label-success">Resolved</span>\s*<small class="ifn-detail ifn-state-resolved">marked as expected}, 'findings: resolved' );
 }
+
+# --- resolved problems (agent 1.0.34 and later)
+
+$res = run_app( scenario => 'resolved' );
+$a   = $res->{data}{attention};
+is_deeply( [ $a->{critical}, $a->{warning} ], [ 1, 2 ], 'resolved: counts open only' );
+is_deeply( [ map { $_->{type} } @{ $a->{events} } ], [qw(sql_injection php_config_risk ssh_brute_force)], 'resolved: not in needs attention' );
+is( $a->{resolved}{n}, 4, 'resolved: four problems resolved in 24 h' );
+is_deeply( [ map { $_->{resolved_how} } @{ $a->{resolved}{events} } ], [qw(marked_expected quarantined port_closed)], 'resolved: most recently resolved first, at most 3' );
+is( $res->{data}{counts}{critical}, 1, 'resolved: figure' );
+is( $res->{data}{counts}{findings}, 1, 'resolved: findings to review exclude resolved ones' );
+is_deeply( $res->{data}{verdict}, { tone => 'critical', key => 'critical', n => 1 }, 'resolved: verdict' );
+is( $res->{data}{counts}{events}, 9, 'resolved: every event still counted as an event' );
+
+my $dup = InfraFence::WHM::App::_resolved_recent( [
+    { type => 'db_exposed', severity => 'critical', state => 'resolved', subject => 'port:tcp/3306', resolved_at => '2026-10-16T10:00:00Z', resolved_how => 'port_closed' },
+    { type => 'db_exposed', severity => 'critical', state => 'resolved', subject => 'port:tcp/3306', resolved_at => '2026-10-16T10:00:00Z', resolved_how => 'port_closed' },
+    { type => 'x', severity => 'info', state => 'resolved', subject => 'y:z', resolved_at => '2026-10-16T11:00:00Z' },
+    { type => 'x', severity => 'critical', state => 'open', subject => 'y:w' },
+], i18n() );
+is( $dup->{n}, 1, 'resolved: one per subject, warning and above' );
+
+$res = run_app( scenario => 'resolved', params => { page => 'events', state => 'open' } );
+ok( !grep( { ( $_->{state} || '' ) eq 'resolved' } @{ $res->{data}{events} } ), 'events: open filter' );
+is( scalar @{ $res->{data}{events} }, 5, 'events: open includes events without a state' );
+is_deeply( $res->{data}{state_count}, { all => 9, open => 5, resolved => 4 }, 'events: state counts' );
+is_deeply( $res->{data}{sev_count}, { all => 5, warning => 3, critical => 1 }, 'events: severity counts within the state filter' );
+$res = run_app( scenario => 'resolved', params => { page => 'events', state => 'resolved', severity => 'critical' } );
+is_deeply( [ map { $_->{type} } @{ $res->{data}{events} } ], [qw(malware_realtime db_exposed integrity_change)], 'events: resolved and critical' );
+is_deeply( $res->{data}{state_count}, { all => 4, open => 1, resolved => 3 }, 'events: state counts within the severity filter' );
+$res = run_app( scenario => 'resolved', params => { page => 'events', state => '<x>' } );
+is( $res->{data}{state_filter}, 'all', 'events: unknown state filter is all' );
+is( scalar @{ $res->{data}{events} }, 9, 'events: all states' );
+my %view = map { $_->{type} . ' ' . $_->{time} => $_->{state_view} } @{ $res->{data}{events} };
+is( $view{'sql_injection 2026-10-16T10:00:00Z'}, '', 'events: not a problem, no state' );
+is( $view{'php_config_risk 2026-10-16T11:50:00Z'}, 'open', 'events: open problem' );
+is( $view{'db_exposed 2026-10-16T10:40:00Z'}, 'resolved', 'events: resolved problem' );
+
+# An older agent: no state, everything open.
+$res = run_app( params => { page => 'events' } );
+ok( !grep( { $_->{state_view} ne 'open' } @{ $res->{data}{events} } ), 'older agent: every event open' );
+is_deeply( $res->{data}{state_count}, { all => 5, open => 5, resolved => 0 }, 'older agent: state counts' );
+
+# Hostile state fields: only a plain "resolved" counts; the rest is dropped.
+$res = run_app( scenario => 'hostile', params => { page => 'events' } );
+my ($obj) = grep { $_->{type} eq 'integrity_change' } @{ $res->{data}{events} };
+is( $obj->{state_view}, '', 'hostile: object state is no state' );
+ok( !exists $obj->{resolved_at} && !exists $obj->{resolved_how}, 'hostile: non-text resolution dropped' );
 
 done_testing;

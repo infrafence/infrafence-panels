@@ -88,7 +88,7 @@ sub tn {
 # plugin does not know yet are shown as they are.
 sub label {
     my ( $self, $group, $value ) = @_;
-    return '' unless defined $value && length $value;
+    return '' unless defined $value && !ref $value && length $value;
     my $key = "$group.$value";
     return $self->has($key) ? $self->t($key) : $value;
 }
@@ -120,6 +120,16 @@ sub time {
     return $iso unless defined $t;
     my @g = gmtime $t;
     return sprintf '%04d-%02d-%02d %02d:%02d UTC', $g[5] + 1900, $g[4] + 1, $g[3], $g[2], $g[1];
+}
+
+# "20:56 UTC": the time of day, for times of the last 24 hours.
+sub clock {
+    my ( $self, $iso ) = @_;
+    return '' unless defined $iso && length $iso;
+    my $t = $self->epoch($iso);
+    return $iso unless defined $t;
+    my @g = gmtime $t;
+    return sprintf '%02d:%02d UTC', $g[2], $g[1];
 }
 
 # "4 min ago", in the user's language.
