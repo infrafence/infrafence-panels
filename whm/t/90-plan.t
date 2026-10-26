@@ -89,10 +89,21 @@ for my $gate (qw(old new)) {
         is( $res->{data}{score}{state}, 'gated', "$name: no score" );
         ok( !$res->{data}{verdict}, "$name: no verdict" );
         is_deeply( $res->{data}{attention}{events}, [], "$name: nothing needs attention" );
+        ok( !$res->{data}{attention}{resolved}, "$name: nothing resolved listed" );
         is( run_app( scenario => $scenario, gate => $gate, params => { range => '7d' } )->{data}{map}{range}, '7d', "$name: 7-day map" );
     }
 }
 is( run_app( scenario => 'unpaid' )->{data}{protection}, 'disabled', 'unpaid: protection off' );
+
+# Resolved problems with an entitled agent 1.0.34 (gate new) and when the
+# plan changes after `status` (every other command refused).
+my $resolved = run_app( scenario => 'resolved', gate => 'new' );
+ok( !$resolved->{data}{gate}, 'resolved, entitled: not gated' );
+is( $resolved->{data}{attention}{resolved}{n}, 4, 'resolved, entitled: resolved problems listed' );
+is( $resolved->{data}{counts}{critical}, 1, 'resolved, entitled: open critical only' );
+$resolved = run_app( scenario => 'resolved', gate => 'new', refuse => 'plan_required', params => { page => 'events', state => 'resolved' } );
+is( $resolved->{data}{gate}, 'plan_required', 'resolved, refused later: gated' );
+is_deeply( $resolved->{data}{events}, [], 'resolved, refused later: no events' );
 
 # --- actions are refused before the agent is asked, a forged POST included
 
