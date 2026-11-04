@@ -1,6 +1,6 @@
 <div class="ifn-head">
   <h2>[% L.t('logins.title') | html %]</h2>
-  <p class="text-muted">[% L.t('logins.intro') | html %]</p>
+  <p class="text-muted">[% L.t('logins.intro') | html %][% IF data.has_protection %] [% L.t('logins.intro_protection') | html %][% END %]</p>
 </div>
 [%- IF data.needs_agent %]
 <div class="alert alert-info" role="status">[% L.t('access.needs_agent', version => data.needs_agent) | html %]</div>
@@ -16,6 +16,7 @@
     <th scope="col">[% L.t('col.last_login') | html %]</th>
     <th scope="col">[% L.t('col.logins') | html %]</th>
     <th scope="col">[% L.t('col.seen_in') | html %]</th>
+    [%- IF data.has_protection %]<th scope="col">[% L.t('col.protection') | html %]</th>[% END %]
     <th scope="col" class="ifn-actions">[% L.t('col.whitelist') | html %]</th>
   </tr></thead>
   <tbody>
@@ -28,6 +29,12 @@
     <td class="ifn-nowrap">[% IF r.last_at %]<time datetime="[% r.last_at | html %]" title="[% L.time(r.last_at) | html %]">[% L.ago(r.last_at) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
     <td>[% IF r.logins.defined %][% L.number(r.logins) | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
     <td>[% L.t('logins.seen.' _ r.seen) | html %]</td>
+    [%- IF data.has_protection %]
+    <td>[% IF r.protection == 'protected' %]<span class="label label-success">[% L.t('logins.protected') | html %]</span>
+      [%- ELSIF r.protection == 'listed' %]<span class="text-warning">[% L.t('logins.not_protected.listed') | html %]</span>
+      [%- ELSIF r.protection %]<span class="text-warning">[% users = [] %][% FOREACH u IN r.service_users %][% IF u.listed %][% users.push(L.t('logins.service_user.listed', user => u.user)) %][% ELSIF u.networks.defined %][% users.push(L.t('logins.service_user.networks', user => u.user, n => L.number(u.networks))) %][% ELSE %][% users.push(u.user) %][% END %][% END %][% IF users.size %][% L.t('logins.not_protected.service_user', users => users.join(', ')) | html %][% ELSE %][% L.t('logins.not_protected.unknown') | html %][% END %]</span>
+      [%- ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    [%- END %]
     <td class="ifn-actions">
       [%- IF r.allowed %]<span class="label label-success">[% L.t('access.allowed') | html %]</span>
       [%- ELSE %]<a class="btn btn-default btn-xs" href="[% data.script | html %]?page=logins&amp;action=allow&amp;ip=[% r.ip | uri | html %]">[% L.t('action.allow_add') | html %]</a>[% END %]

@@ -61,8 +61,9 @@ fi
   Exploitation page), attack type, rule set and site of a WAF block; the
   addresses an exposed database listens on. Also on the Overview's list.
 - SSH logins: the known SSH logins of the last 30 days (users, country,
-  first and last login, read from the logs or seen live), with Add to
-  whitelist.
+  first and last login, read from the logs or seen live), whether
+  InfraFence never bans the address or not (SSH service users), with Add
+  to whitelist.
 - Database clients: the regular clients of the database, cache and admin
   ports (seen on 3 of the last 7 days, first and last seen) and the
   Additional MySQL Access Hosts, with Add to whitelist.

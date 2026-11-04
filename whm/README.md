@@ -11,7 +11,7 @@ site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 | Bans | Active bans; unban, or add the address to the whitelist |
 | Whitelist | Addresses that are never banned, from this server and from the dashboard; add and remove |
 | Findings | Malware and file integrity findings, and whether each is resolved |
-| SSH logins | The known SSH logins of the last 30 days: users, country, first and last login, read from the logs or seen live; add one to the whitelist |
+| SSH logins | The known SSH logins of the last 30 days: users, country, first and last login, read from the logs or seen live, and whether InfraFence never bans the address or not (SSH service users); add one to the whitelist |
 | Database clients | The regular clients of the database, cache and admin ports (seen on 3 of the last 7 days, first and last seen) and the Additional MySQL Access Hosts; add one to the whitelist |
 | Events | Recent security events with their state (open, resolved), filtered by state and by severity (all, warning and above, critical), and their details (mailbox and protocol of a mail attack, CVE and site of a WAF block, where an exposed database listens) |
 | Coexistence | Other security tools found (CSF, lfd, Imunify360, cPHulk, ModSecurity and its rule sets…) and how InfraFence works with each |
@@ -39,9 +39,13 @@ Resolved / All filter. With an older agent every event is open, as before.
   database and the addresses an exposed database listens on. The Overview's "Needs attention" list shows the
   same line. Only a fixed set of fields is shown, each checked and capped (a CVE must be `CVE-YYYY-NNNN`).
 - **SSH logins** (`panel ssh-logins`): the addresses with an SSH login in the last 30 days, the agent's own
-  login history (read from the logs at start and once a day, and every login since). InfraFence never bans
-  them by itself; the page says that a login older than the logs is unknown, so the whitelist stays the
-  guarantee.
+  login history (read from the logs at start and once a day, and every login since). A **Protection** column
+  gives the login guard's own answer (`protected`, `not_protected`): **Never banned**, or **Not protected:
+  service user deploy (14 networks)** / **Not protected: listed in the InfraFence settings** for an address
+  only SSH service users logged in from (a user seen from more than 10 networks in 30 days, such as a CI deploy
+  account, or one listed in the dashboard's Settings › Network › SSH service users). With an agent that does
+  not send `protected`, there is no column and the page claims nothing either way. The page says that a login
+  older than the logs is unknown, so the whitelist stays the guarantee; Add to whitelist is on every row.
 - **Database clients** (`panel db-clients`): addresses seen connected to a database, cache or admin port on 3
   or more of the last 7 days, and the remote MySQL hosts declared in WHM. While one of a port's clients is not
   whitelisted, the agent refuses to close that port; the page says how many are not.

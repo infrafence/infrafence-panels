@@ -33,9 +33,11 @@
 #                        (this plugin's VERSION) and plugin_latest (this value), as
 #                        agent 1.0.35 and later send them. Unset: an older agent,
 #                        without either field.
-#   MOCK_AGENT_ACCESS    new (default) | old: old is an agent before 1.0.41, which
-#                        does not know `panel ssh-logins` and `panel db-clients`
-#                        (unknown_command).
+#   MOCK_AGENT_ACCESS    new (default) | old | unprotected: old is an agent before
+#                        1.0.41, which does not know `panel ssh-logins` and
+#                        `panel db-clients` (unknown_command); unprotected: an agent
+#                        whose `panel ssh-logins` has no `protected` /
+#                        `not_protected` (before the SSH service users).
 #   MOCK_AGENT_REFUSE    plan_required | unpaid | unknown: every command but `status`
 #                        answers this error (the plan changed after `status`).
 #   MOCK_AGENT_FIXTURES  fixtures directory (default: next to this script)
@@ -302,7 +304,13 @@ if ( $command eq 'events' ) {
     limited( $r, 'events' );
 }
 reply( fixture('allowlist') ) if $command eq 'allowlist';
-limited( fixture('ssh_logins'), 'logins' ) if $command eq 'ssh-logins';
+if ( $command eq 'ssh-logins' ) {
+    my $r = fixture('ssh_logins');
+    if ( ( $ENV{MOCK_AGENT_ACCESS} || '' ) eq 'unprotected' ) {
+        delete @{$_}{qw(protected not_protected)} for @{ $r->{logins} };
+    }
+    limited( $r, 'logins' );
+}
 reply( fixture('db_clients') ) if $command eq 'db-clients';
 
 my @bans  = @{ fixture('bans')->{bans} };

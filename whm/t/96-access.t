@@ -30,8 +30,8 @@ is( $res->{code}, 200, 'logins: 200' );
 is_deeply( [ map { [ @$_[ 1 .. $#$_ ] ] } grep { $_->[1] ne 'status' } @{ calls() } ],
     [ [qw(ssh-logins --limit 500 --json)] ], 'logins: one call, within the agent limits' );
 my @l = @{ $res->{data}{logins} };
-is( scalar @l, 2, 'logins: two addresses' );
-is_deeply( [ map { $_->{ip} } @l ], [ '198.51.100.61', '2001:db8:44::7' ], 'logins: in the agent order' );
+is( scalar @l, 4, 'logins: four addresses' );
+is_deeply( [ map { $_->{ip} } @l ], [ '198.51.100.61', '2001:db8:44::7', '203.0.113.140', '192.0.2.141' ], 'logins: in the agent order' );
 is_deeply( $l[0]{users}, ['root'], 'logins: users' );
 is( $l[0]{country_name}, 'Italy', 'logins: country name' );
 is( $l[1]{country}, undef, 'logins: no country' );
@@ -79,6 +79,40 @@ if ($has_tt) {
     unlike( $html, qr/<script>alert|<img src=x/, 'hostile: nothing unescaped' );
     like( $html, qr/&lt;script&gt;alert\(21\)/, 'hostile: user escaped' );
 }
+
+# --- protection (agent with the SSH service users)
+
+$res = run_app( params => { page => 'logins' } );
+ok( $res->{data}{has_protection}, 'protection: shown' );
+my %pl = map { $_->{ip} => $_ } @{ $res->{data}{logins} };
+is( $pl{'198.51.100.61'}{protection}, 'protected', 'protection: protected' );
+is( $pl{'203.0.113.140'}{protection}, 'service_user', 'protection: service user' );
+is_deeply( $pl{'203.0.113.140'}{service_users}, [ { user => 'deploy', networks => 14, listed => 0 } ], 'protection: the service user' );
+is( $pl{'192.0.2.141'}{protection}, 'listed', 'protection: listed' );
+if ($has_tt) {
+    my $html = render($res);
+    like( $html, qr{<th scope="col">Protection</th>}, 'protection: column' );
+    like( $html, qr{>Never banned<}, 'protection: never banned' );
+    like( $html, qr{Not protected: service user deploy \(14 networks\)}, 'protection: service user text' );
+    like( $html, qr{Not protected: listed in the InfraFence settings}, 'protection: listed text' );
+    like( $html, qr{InfraFence never bans a protected address by itself}, 'protection: intro' );
+    is( () = $html =~ /action=allow&amp;ip=/g, 4, 'protection: Add to whitelist on every row' );
+    my $de = render( run_app( lang => 'de', params => { page => 'logins' } ) );
+    like( $de, qr{Nicht gesch\x{c3}\x{bc}tzt: Service-Benutzer deploy \(14 Netze\)}, 'protection: German' );
+}
+
+# An agent without the field: no column, no claim.
+$res = run_app( params => { page => 'logins' }, access => 'unprotected' );
+ok( !$res->{data}{has_protection}, 'unprotected agent: no protection' );
+if ($has_tt) {
+    my $html = render($res);
+    unlike( $html, qr{Protection</th>|Never banned|never bans}, 'unprotected agent: no column, no never-ban claim' );
+}
+$res = run_app( params => { page => 'logins' }, scenario => 'hostile' );
+my ($hp) = grep { $_->{ip} eq '198.51.100.61' } @{ $res->{data}{logins} };
+is( $hp->{protection}, 'service_user', 'hostile protection: an unknown reason is a service user' );
+is_deeply( $hp->{service_users}, [ { user => '<script>alert(30)</script>', networks => undef, listed => 0 } ], 'hostile protection: bad users dropped' );
+unlike( render($res), qr/<script>alert\(30\)/, 'hostile protection: escaped' ) if $has_tt;
 
 # --- whitelisting from the SSH logins
 

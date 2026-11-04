@@ -908,8 +908,36 @@ sub _page_logins {
           @{ ref $r->{users} eq 'ARRAY' ? $r->{users} : [] };
         splice @users, 5 if @users > 5;
         my $country = defined $r->{country} && !ref $r->{country} && $r->{country} =~ /\A[A-Z]{2}\z/ ? $r->{country} : undef;
+        # Agent 1.0.41 with SSH service users: whether the login guard
+        # protects the address, and why not. Without `protected`, nothing is
+        # claimed either way.
+        my ( $protection, @svc );
+        if ( exists $r->{protected} ) {
+            $data->{has_protection} = 1;
+            my $np = ref $r->{not_protected} eq 'HASH' ? $r->{not_protected} : undef;
+            if ( ref $r->{protected} ) {
+                # Not a boolean: nothing is claimed for this address.
+            }
+            elsif ( $r->{protected} ) {
+                $protection = 'protected';
+            }
+            else {
+                my $reason = defined $np && defined $np->{reason} && !ref $np->{reason} ? $np->{reason} : '';
+                $protection = $reason eq 'listed' ? 'listed' : 'service_user';
+                for my $u ( @{ $np && ref $np->{users} eq 'ARRAY' ? $np->{users} : [] } ) {
+                    next unless ref $u eq 'HASH';
+                    my $name = $u->{user};
+                    next unless defined $name && !ref $name && length $name && length $name <= 64 && _plain($name);
+                    my $n = defined $u->{networks} && !ref $u->{networks} && $u->{networks} =~ /\A[0-9]{1,6}\z/ ? $u->{networks} : undef;
+                    push @svc, { user => $name, networks => $n, listed => $u->{listed} && !ref $u->{listed} ? 1 : 0 };
+                    last if @svc >= 5;
+                }
+            }
+        }
         push @rows, {
             ip       => $ip,
+            protection    => $protection,
+            service_users => \@svc,
             users    => \@users,
             country  => $country,
             country_name => defined $country ? InfraFence::WHM::Map::country_name( $self->{map_dir}, $self->{i18n}->lang, $country ) : undef,

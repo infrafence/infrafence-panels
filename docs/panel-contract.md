@@ -30,7 +30,7 @@ command, as root, and read JSON from stdout:
 | `sites` | Hosting accounts and domains seen on the server, with their document roots and scan coverage |
 | `scan <path> --actor <user>` | Queues a malware scan of one document root |
 | `map [--hours 24\|168]`, `score` | This server's attack map and security score, fetched by the agent from the dashboard and cached (agent 1.0.33) |
-| `ssh-logins [--limit N]` | The SSH logins of the last 30 days: users, country, first and last login, imported from the logs and/or seen live, and whether the address is on this server's allow list (agent 1.0.41, answered from the agent's own login history) |
+| `ssh-logins [--limit N]` | The SSH logins of the last 30 days: users, country, first and last login, imported from the logs and/or seen live, whether the address is on this server's allow list, and whether the login guard protects it (`protected`, `not_protected`: only SSH service users logged in from it) (agent 1.0.41, answered from the agent's own login history) |
 | `db-clients` | The regular clients of the database, cache and admin ports (seen on 3 of the last 7 days) and the declared ones (cPanel Additional MySQL Access Hosts), with first and last seen and whether each is on the allow list (agent 1.0.41, answered from the agent's own client log) |
 
 ## Rules for the plugins
