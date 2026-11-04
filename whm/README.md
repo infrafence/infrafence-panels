@@ -11,7 +11,9 @@ site: [WHM plugin](https://infrafence.com/docs/whm-plugin).
 | Bans | Active bans; unban, or add the address to the whitelist |
 | Whitelist | Addresses that are never banned, from this server and from the dashboard; add and remove |
 | Findings | Malware and file integrity findings, and whether each is resolved |
-| Events | Recent security events with their state (open, resolved), filtered by state and by severity (all, warning and above, critical) |
+| SSH logins | The known SSH logins of the last 30 days: users, country, first and last login, read from the logs or seen live, and whether InfraFence never bans the address or not (SSH service users); add one to the whitelist |
+| Database clients | The regular clients of the database, cache and admin ports (seen on 3 of the last 7 days, first and last seen) and the Additional MySQL Access Hosts; add one to the whitelist |
+| Events | Recent security events with their state (open, resolved), filtered by state and by severity (all, warning and above, critical), and their details (mailbox and protocol of a mail attack, CVE and site of a WAF block, where an exposed database listens) |
 | Coexistence | Other security tools found (CSF, lfd, Imunify360, cPHulk, ModSecurity and its rule sets…) and how InfraFence works with each |
 | Sites | Accounts, domains and document roots with malware scan coverage; start a scan |
 
@@ -27,6 +29,38 @@ attention"; the Overview lists the three most recently resolved in the last 24 h
 Resolved / All filter. With an older agent every event is open, as before.
 
 ![Overview with a resolved problem](docs/screenshots/en-overview-resolved.png)
+
+**Event details, SSH logins, database clients (1.1.0).** With agent 1.0.41 or later, as the dashboard shows them:
+
+- **Events:** an event with details has a line under its name (`info@example.com · IMAP · PLAIN`,
+  `CVE-2024-27956`, `0.0.0.0:3306`) that opens them, without JavaScript (`<details>`): the mailbox, mail
+  protocol, login method, failures, recipient, targeted domain and mail software of a mail attack; the CVE
+  (linked to the Exploitation page in InfraFence), attack type, rule set and site of a web firewall block; the
+  database and the addresses an exposed database listens on. The Overview's "Needs attention" list shows the
+  same line. Only a fixed set of fields is shown, each checked and capped (a CVE must be `CVE-YYYY-NNNN`).
+- **SSH logins** (`panel ssh-logins`): the addresses with an SSH login in the last 30 days, the agent's own
+  login history (read from the logs at start and once a day, and every login since). A **Protection** column
+  gives the login guard's own answer (`protected`, `not_protected`): **Never banned**, or **Not protected:
+  service user deploy (14 networks)** / **Not protected: listed in the InfraFence settings** for an address
+  only SSH service users logged in from (a user seen from more than 10 networks in 30 days, such as a CI deploy
+  account, or one listed in the dashboard's Settings › Network › SSH service users). With an agent that does
+  not send `protected`, there is no column and the page claims nothing either way. The page says that a login
+  older than the logs is unknown, so the whitelist stays the guarantee; Add to whitelist is on every row.
+- **Database clients** (`panel db-clients`): addresses seen connected to a database, cache or admin port on 3
+  or more of the last 7 days, and the remote MySQL hosts declared in WHM. While one of a port's clients is not
+  whitelisted, the agent refuses to close that port; the page says how many are not.
+- **Add to whitelist** on both pages is the existing allow action (confirmation page, POST with the WHM
+  security token, `panel allow <ip> --note … --actor <user>`), with the note "Known SSH login" or "Regular
+  database client" in the user's language. A declared range cannot be added from the plugin (the agent's
+  `allow` takes one address): the page says to whitelist it in the dashboard.
+- With an older agent (`unknown_command`), both pages say "This list needs InfraFence agent 1.0.41 or later",
+  without a red error, and events show no details.
+- Events reclassified in the dashboard (WAF events of agents before 1.0.37) are not in the plugin: it shows the
+  agent's own recent events, already labelled the new way.
+
+![Known SSH logins](docs/screenshots/en-logins.png)
+
+![Regular clients of database ports](docs/screenshots/en-clients.png)
 
 When the agent is not installed, the plugin says how to add the server in the InfraFence dashboard
 (Servers > Add server) and links to https://infrafence.com/add-server.
@@ -86,6 +120,8 @@ changes the firewall, ModSecurity or any other tool by itself.
   (`plugin/map/`, Natural Earth, public domain; attribution in `plugin/map/NOTICE`). The page loads nothing
   from other sites and needs no JavaScript. Country codes and counts from the agent are checked before they
   are drawn.
+- **SSH logins and database clients from the agent.** `panel ssh-logins` and `panel db-clients` (agent 1.0.41
+  or later) are answered by the agent from what it keeps on the server; nothing is asked of the dashboard.
 - **Score and map from the dashboard.** `panel map` and `panel score` (agent 1.0.33 or later) are answered by
   the agent from the InfraFence dashboard, cached by the agent (at most one request every 5 minutes for the
   map and 15 minutes for the score). With an older agent that does not know them, or before the

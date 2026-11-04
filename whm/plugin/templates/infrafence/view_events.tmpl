@@ -30,7 +30,21 @@
   [%- FOREACH e IN data.events %]
   <tr>
     <td class="ifn-nowrap"><time datetime="[% e.time | html %]">[% L.time(e.time) | html %]</time></td>
-    <td>[% L.label('event', e.type) | html %]</td>
+    <td>[% L.label('event', e.type) | html %]
+      [%- IF e.facts.size || e.cves.size %]
+      <details class="ifn-event-details">
+        <summary>[% IF e.summary %]<span class="ifn-mono">[% e.summary | html %]</span>[% ELSE %][% L.t('events.details') | html %][% END %]</summary>
+        <table class="table ifn-dl ifn-facts">
+          [%- FOREACH f IN e.facts %]
+          <tr><th scope="row">[% L.t('detail.' _ f.key) | html %]</th><td class="ifn-mono">[% IF f.key == 'waf_ruleset' || f.key == 'attack_type' %][% L.label(f.key, f.value) | html %][% ELSE %][% f.value | html %][% END %]</td></tr>
+          [%- END %]
+          [%- IF e.cves.size %]
+          <tr><th scope="row">[% L.t('detail.cve') | html %]</th><td class="ifn-mono">[% FOREACH c IN e.cves %]<a href="[% data.exploitation_url | html %]?cve=[% c | uri | html %]" target="_blank" rel="noopener noreferrer" title="[% L.t('detail.cve_link') | html %]">[% c | html %]</a>[% UNLESS loop.last %], [% END %][% END %]</td></tr>
+          [%- END %]
+        </table>
+      </details>
+      [%- END %]
+    </td>
     <td><span class="label label-[% data.sev_class.${e.severity} || 'default' | html %]">[% L.label('severity', e.severity) | html %]</span></td>
     <td>[% IF e.state_view == 'resolved' %]<span class="label label-success">[% L.t('state.resolved') | html %]</span>
       <small class="ifn-detail ifn-state-resolved">[% IF e.resolved_how %][% L.label('resolved_how', e.resolved_how) | html %] &middot; [% END %]<time datetime="[% e.resolved_at | html %]">[% L.time(e.resolved_at) | html %]</time></small>

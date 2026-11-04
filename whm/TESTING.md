@@ -44,7 +44,7 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
 
 ### 1. Install from the tarball, without the agent
 
-    tar xzf infrafence-whm-1.0.3.tar.gz && cd infrafence-whm-1.0.3
+    tar xzf infrafence-whm-1.1.0.tar.gz && cd infrafence-whm-1.1.0
     ./install.sh --check          # every line "ok"; nothing changed
     ./install.sh
     ./install.sh                  # again: same result, no errors
@@ -60,7 +60,7 @@ AlmaLinux 9 (also repeat 1–5 on AlmaLinux 8, CloudLinux and Ubuntu 24.04 when 
     install -o root -g root -m 0755 dev/mock-agent /usr/local/bin/infrafence-agent
     cp -r dev/fixtures dev/scenarios /usr/local/bin/
 
-- [ ] Every tab renders: Overview, Bans, Whitelist, Findings, Events, Coexistence, Sites.
+- [ ] Every tab renders: Overview, Bans, Whitelist, SSH logins, Database clients, Findings, Events, Coexistence, Sites.
 - [ ] Overview: the score and grade, the critical events, the map (24 hours and 7 days) and the figures appear. (The stale, not-connected and old-agent states are covered by `make test`, with `MOCK_AGENT_MAP` / `MOCK_AGENT_SCORE`; the plugin runs the agent with a clean environment, so they cannot be set here.)
 - [ ] Unban, Allow, Remove and Scan now each open a confirmation page first. Cancel goes back and changes nothing.
 - [ ] Confirming shows a green message (the mock does not keep state, so the lists do not change). Allowing `203.0.113.7` (banned) adds the note that the ban stays listed.
@@ -89,6 +89,10 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 - [ ] Map: 24 h and 7 days switch with plain links; hovering a country shows its name and count. Browser dev tools » Network: the page loads nothing from other sites. Nothing is reported by WHM's Content Security Policy in the console.
 - [ ] Block the dashboard from the server for over 5 minutes (e.g. a temporary firewall rule on the API host): the map and score stay, with "Last updated …". Remove the rule.
 - [ ] With an agent older than 1.0.33 (no `panel map`): the Overview says to update the agent, without a red error.
+- [ ] With agent 1.0.41 or later: **SSH logins** lists your own address (logged in over SSH in the last 30 days) with your user, its country, "Imported from logs" and/or "Live" and "Never banned" under Protection; an address only a deploy account used from many networks (or a user listed in Settings › Network › SSH service users) says "Not protected"; it matches **Known SSH logins** on the server's page in the dashboard. **Add to whitelist** asks first, then the row says "On the whitelist", the Whitelist tab has it with the note "Known SSH login", and the dashboard shows the `panel_allow` event.
+- [ ] **Database clients**: with Additional MySQL Access Hosts set in WHM (SQL Services » Additional MySQL Access Hosts), the hosts appear within an hour as clients of 3306; a range has no Add button and says to whitelist it in the dashboard. A real application server connected for 3 days appears as Observed with its days and times.
+- [ ] Events: a mail login brute force shows its mailbox and protocol under the name, a ModSecurity block of a virtual patch its CVE (the link opens the Exploitation page in InfraFence), a database reachable from the internet where it listens.
+- [ ] With an agent older than 1.0.41: SSH logins and Database clients say "This list needs InfraFence agent 1.0.41 or later", without a red error.
 - [ ] Events: the Critical and Warning and above filters, and the Overview's "See them in Events" link, show the same events as the Overview's list.
 - [ ] Language: pick Deutsch in the plugin's selector (WHM itself in English): every tab is in German, and WHM's own menus stay English. Log in as another root-level WHM user: the plugin follows that user's WHM language. `ls -l /var/cpanel/infrafence-whm/prefs/`: `root.json`, 0600, owned by root; directory 0700. Choose "Same as WHM": the file is gone.
 - [ ] Language and CSRF: change the `csrf` field of the language form (dev tools) and submit: "The security check failed", HTTP 403, choice unchanged.
@@ -110,8 +114,8 @@ Add the server in the dashboard (Servers > Add server) and run the command shown
 
 ### 5. Packages
 
-    dnf install ./infrafence-whm-1.0.3-1.noarch.rpm    # or: apt install ./infrafence-whm_1.0.3_all.deb
-    dnf reinstall ./infrafence-whm-1.0.3-1.noarch.rpm
+    dnf install ./infrafence-whm-1.1.0-1.noarch.rpm    # or: apt install ./infrafence-whm_1.1.0_all.deb
+    dnf reinstall ./infrafence-whm-1.1.0-1.noarch.rpm
     dnf remove infrafence-whm
 
 - [ ] Registered after install, still registered after reinstall, unregistered and all files gone after removal.

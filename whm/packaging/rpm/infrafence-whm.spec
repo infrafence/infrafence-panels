@@ -55,6 +55,21 @@ fi
 /usr/local/share/infrafence-whm
 
 %changelog
+* Wed Nov 04 2026 Infrafence <info@infrafence.com> - 1.1.0-1
+- Event details, as in the dashboard: the mailbox, mail protocol, login
+  method and failures of a mail attack; the CVE (with a link to the
+  Exploitation page), attack type, rule set and site of a WAF block; the
+  addresses an exposed database listens on. Also on the Overview's list.
+- SSH logins: the known SSH logins of the last 30 days (users, country,
+  first and last login, read from the logs or seen live), whether
+  InfraFence never bans the address or not (SSH service users), with Add
+  to whitelist.
+- Database clients: the regular clients of the database, cache and admin
+  ports (seen on 3 of the last 7 days, first and last seen) and the
+  Additional MySQL Access Hosts, with Add to whitelist.
+- Both lists and the details need agent 1.0.41 or later; with an older
+  agent the pages say so and the rest works as before.
+
 * Mon Oct 26 2026 Infrafence <info@infrafence.com> - 1.0.3-1
 - Technical details show the agent version and the plugin version as two
   rows. With agent 1.0.35 and later, when a newer plugin is released, every

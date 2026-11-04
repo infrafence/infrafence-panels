@@ -25,10 +25,13 @@ command, as root, and read JSON from stdout:
 | `allow <ip> [--note …] --actor <user>` | Adds the address to the server's allow list (never banned again) and reports it |
 | `allowlist` / `disallow <ip> --actor <user>` | Lists or removes allow-list entries |
 | `findings [--limit N]` | Recent malware and file-integrity findings: path, kind, severity, status, detected; from agent 1.0.34 also subject and state (open, resolved, with when and how) |
-| `events [--limit N] [--since …]` | Recent security events (type, severity, source ip, time); from agent 1.0.34 also the subject and, for problem events, the state (open, resolved, with when and how) |
+| `events [--limit N] [--since …]` | Recent security events (type, severity, source ip, time); from agent 1.0.34 also the subject and, for problem events, the state (open, resolved, with when and how); from agent 1.0.41 also `details` (mailbox, protocol, login method and attempts of mail attacks, CVE, attack type, rule set and site of WAF blocks, database and bind address of an exposed database) |
 | `coexistence` | Other security tools found, and what the agent does about each: CSF/lfd, Imunify360, cPHulk, fail2ban, Plesk Firewall, the ModSecurity vendors and rulesets in use, BitNinja, Monarx. `mode` is `coexist` (observe, never fight over iptables) or `primary` |
 | `sites` | Hosting accounts and domains seen on the server, with their document roots and scan coverage |
 | `scan <path> --actor <user>` | Queues a malware scan of one document root |
+| `map [--hours 24\|168]`, `score` | This server's attack map and security score, fetched by the agent from the dashboard and cached (agent 1.0.33) |
+| `ssh-logins [--limit N]` | The SSH logins of the last 30 days: users, country, first and last login, imported from the logs and/or seen live, whether the address is on this server's allow list, and whether the login guard protects it (`protected`, `not_protected`: only SSH service users logged in from it) (agent 1.0.41, answered from the agent's own login history) |
+| `db-clients` | The regular clients of the database, cache and admin ports (seen on 3 of the last 7 days) and the declared ones (cPanel Additional MySQL Access Hosts), with first and last seen and whether each is on the allow list (agent 1.0.41, answered from the agent's own client log) |
 
 ## Rules for the plugins
 
