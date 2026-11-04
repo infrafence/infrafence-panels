@@ -29,7 +29,7 @@ use InfraFence::WHM::Score ();
 use InfraFence::WHM::Util qw(const_eq uri_escape);
 use InfraFence::WHM::Validate qw(valid_ip valid_note valid_actor valid_docroot valid_choice valid_https_url);
 
-our $VERSION = '1.0.3';
+our $VERSION = '1.1.0';
 
 our $SITE_URL       = 'https://infrafence.com';
 our $ADD_SERVER_URL = 'https://infrafence.com/add-server';
@@ -45,7 +45,7 @@ our $PANELS_URL     = 'https://infrafence.com/panels';
 our @PAID_PLANS = qw(basic pro automode);
 my @GATES       = qw(plan_required unpaid unknown);
 
-our @PAGES = qw(overview bans allowlist findings events coexistence sites);
+our @PAGES = qw(overview bans allowlist logins clients findings events coexistence sites);
 
 # Seconds for all the agent calls of the Overview together (it makes six, seven
 # with the 7-day map).
@@ -73,7 +73,7 @@ use constant RESOLVED_MAX => 3;
 # what it acts on.
 my %ACTIONS = (
     unban    => { pages => [qw(bans)],           target => 'ip' },
-    allow    => { pages => [qw(allowlist bans)], target => 'ip' },
+    allow    => { pages => [qw(allowlist bans logins clients)], target => 'ip' },
     disallow => { pages => [qw(allowlist)],      target => 'ip' },
     scan     => { pages => [qw(sites)],          target => 'path' },
 );
@@ -84,6 +84,41 @@ my @FINDING_LIMITS = qw(200 500);
 my @EVENT_LIMITS   = qw(100 50 250 500);
 my @FINDING_KINDS  = qw(all malware integrity);
 my @BAN_SOURCES    = qw(local network automode manual);
+
+# The known SSH logins and the database clients (agent 1.0.41 and later:
+# `panel ssh-logins`, `panel db-clients`). An older agent does not know the
+# commands: the page says which agent version it needs.
+use constant LOGINS_LIMIT  => 500;
+use constant CLIENTS_LIMIT => 500;
+our $AGENT_FOR_ACCESS = '1.0.41';
+
+# Product names of the database, cache and admin ports the agent may close.
+my %PORT_NAMES = (
+    3306  => 'MySQL/MariaDB',
+    5432  => 'PostgreSQL',
+    6379  => 'Redis',
+    27017 => 'MongoDB',
+    9200  => 'Elasticsearch',
+    11211 => 'Memcached',
+    2375  => 'Docker API',
+    2376  => 'Docker API',
+    5984  => 'CouchDB',
+    8086  => 'InfluxDB',
+);
+
+# The event details shown on the Events page (agent 1.0.41 and later:
+# `details` of `panel events`), in the order shown, with each one's length
+# cap. Mail attacks: what the log line says the attacker targeted; WAF
+# blocks: the vulnerability, attack type, rule set and site; an exposed
+# database: where it listens.
+my @DETAILS = (
+    [ target_user      => 254 ], [ protocol => 20 ], [ auth_method => 20 ], [ attempts => 6 ],
+    [ recipient        => 254 ], [ recipient_domain => 253 ], [ mta => 20 ],
+    [ attack_type      => 40 ],  [ waf_ruleset => 40 ], [ domain => 253 ],
+    [ service          => 40 ],  [ bind_address => 200 ],
+);
+my $CVE = qr/\ACVE-[0-9]{4}-[0-9]{4,7}\z/;
+our $EXPLOITATION_URL = 'https://infrafence.com/exploitation';
 
 # The agent lifts a ban on this server until the ban expires, at most 30 days.
 use constant MAX_LIFT => 30 * 86400;
@@ -254,7 +289,7 @@ sub _gated {
     my ( $self, $page, $data, $code ) = @_;
     $data->{gate} = $self->{gate};
     $data->{page} = $page;
-    $data->{$_}   = [] for qw(bans entries findings events tools accounts);
+    $data->{$_}   = [] for qw(bans entries findings events tools accounts logins clients);
     $data->{form} = {};
     if ( $page eq 'overview' && $self->_overview_state($data) && _running($data) ) {
         $data->{counts}    = { map { $_ => 0 } qw(attacks critical bans findings events warning) };
@@ -283,6 +318,7 @@ sub _base {
         add_server_url => $ADD_SERVER_URL,
         billing_url    => $BILLING_URL,
         panels_url     => $PANELS_URL,
+        exploitation_url => $EXPLOITATION_URL,
         panel_names    => \%PANEL_NAMES,
         languages      => [ map { { code => $_->[0], name => $_->[1] } } @InfraFence::WHM::Prefs::LANGUAGES ],
         lang_choice    => $self->_lang_choice,
@@ -392,7 +428,10 @@ sub _action {
         }
         $act{ip} = $ip;
         if ( $name eq 'allow' ) {
-            my $note = valid_note( $p->{note} );
+            # From the SSH logins and the database clients: a note saying where
+            # it came from, unless one is given.
+            my $note = valid_note( !defined $p->{note} && ( $page eq 'logins' || $page eq 'clients' )
+                ? $self->{i18n}->t("$page.note") : $p->{note} );
             unless ( defined $note ) {
                 _error( $data, 'invalid_note' );
                 $data->{form} = { ip => $ip };
@@ -669,7 +708,9 @@ sub _attention {
         next unless $rank >= $SEV_FILTER{warning};
         my $level = $rank >= $SEV_FILTER{critical} ? 'critical' : 'warning';
         $n{$level}++;
-        push @list, { %$e, level => $level, rank => $level eq q{critical} ? 1 : 0, ip => valid_ip( $e->{source_ip} ) };
+        my $row = { %$e, level => $level, rank => $level eq q{critical} ? 1 : 0, ip => valid_ip( $e->{source_ip} ) };
+        event_details($row);
+        push @list, $row;
     }
     @list = map { $_->[1] }
       sort { $b->[1]{rank} <=> $a->[1]{rank} || $b->[0] <=> $a->[0] }
@@ -778,6 +819,7 @@ sub _page_events {
     my %state_count = ( all => 0, open => 0, resolved => 0 );
     for my $e (@$all) {
         $e->{state_view} = _state_of($e);
+        event_details($e);
         ref $e->{$_} and delete $e->{$_} for qw(resolved_at resolved_how);
         my $rank = $rank_of->($e);
         if ( $in_state->($e) ) {
@@ -794,6 +836,153 @@ sub _page_events {
     $data->{state_count} = \%state_count;
     $data->{any_events}  = scalar @$all;
     $data->{events}      = [ grep { $rank_of->($_) >= $SEV_FILTER{$sev} && $in_state->($_) } @$all ];
+}
+
+# The event's details as the Events page shows them (agent 1.0.41 and later):
+# `facts`, a list of { key, value } in the order of @DETAILS, the CVEs it
+# names (`cves`, well formed and unique, at most 10) and a one-line
+# `summary` ("info@example.com · IMAP · PLAIN", "CVE-2021-44228", the
+# addresses a database listens on). Values that are not short text are left
+# out; everything is escaped where it is printed. An older agent sends no
+# details: nothing is added.
+sub event_details {
+    my ($e) = @_;
+    my $d = ref $e->{details} eq 'HASH' ? $e->{details} : {};
+    delete $e->{details};
+    my $type = defined $e->{type} && !ref $e->{type} ? $e->{type} : '';
+    my %v;
+    for (@DETAILS) {
+        my ( $k, $max ) = @$_;
+        my $x = $d->{$k};
+        next unless defined $x && !ref $x;
+        $x =~ s/\A\s+//;
+        $x =~ s/\s+\z//;
+        next if $x eq '' || length $x > $max || !_plain($x);
+        $v{$k} = $x;
+    }
+    delete $v{attempts} if defined $v{attempts} && $v{attempts} !~ /\A[0-9]{1,6}\z/;
+    delete $v{bind_address} unless $type eq 'db_exposed';
+    $v{$_} = uc $v{$_} for grep { defined $v{$_} } qw(protocol auth_method);
+    $v{recipient_domain} = lc $v{recipient_domain} if defined $v{recipient_domain};
+
+    my ( %seen, @cves );
+    for my $x ( $d->{cve}, $d->{cves} ) {
+        next unless defined $x && !ref $x;
+        for my $c ( split /,/, substr( $x, 0, 200 ) ) {
+            $c =~ s/\A\s+|\s+\z//g;
+            $c = uc $c;
+            push @cves, $c if $c =~ $CVE && !$seen{$c}++;
+        }
+    }
+    splice @cves, 10 if @cves > 10;
+
+    $e->{facts}  = [ map { { key => $_->[0], value => $v{ $_->[0] } } } grep { defined $v{ $_->[0] } } @DETAILS ];
+    $e->{cves}   = \@cves;
+    # "\xe2\x86\x92" is the UTF-8 arrow: all text here is bytes.
+    my $mailbox = defined $v{recipient} ? "\xe2\x86\x92 $v{recipient}" : $v{target_user};
+    my @summary = grep { defined $_ && length $_ } $mailbox, $v{protocol}, $v{auth_method};
+    @summary = @cves                 if !@summary && @cves;
+    @summary = ( $v{bind_address} )  if !@summary && defined $v{bind_address};
+    $e->{summary} = join ' · ', @summary;
+    return $e;
+}
+
+sub _access_reply {
+    my ( $self, $data, $reply, $field ) = @_;
+    if ( !$reply->{ok} && defined $reply->{error} && $reply->{error} eq 'unknown_command' ) {
+        $data->{needs_agent} = $AGENT_FOR_ACCESS;
+        return [];
+    }
+    return $self->_list( $data, $reply, $field );
+}
+
+# Known SSH logins of the last 30 days (`panel ssh-logins`).
+sub _page_logins {
+    my ( $self, $data ) = @_;
+    my $reply = $self->_call( 'ssh-logins', '--limit', LOGINS_LIMIT );
+    my @rows;
+    for my $r ( @{ $self->_access_reply( $data, $reply, 'logins' ) } ) {
+        last if @rows >= LOGINS_LIMIT;
+        my $ip = valid_ip( $r->{ip} ) or next;
+        my @users = grep { defined $_ && !ref $_ && length($_) && length($_) <= 64 && _plain($_) }
+          @{ ref $r->{users} eq 'ARRAY' ? $r->{users} : [] };
+        splice @users, 5 if @users > 5;
+        my $country = defined $r->{country} && !ref $r->{country} && $r->{country} =~ /\A[A-Z]{2}\z/ ? $r->{country} : undef;
+        push @rows, {
+            ip       => $ip,
+            users    => \@users,
+            country  => $country,
+            country_name => defined $country ? InfraFence::WHM::Map::country_name( $self->{map_dir}, $self->{i18n}->lang, $country ) : undef,
+            first_at => _iso( $r->{first_at} ) ? $r->{first_at} : undef,
+            last_at  => _iso( $r->{last_at} ) ? $r->{last_at} : undef,
+            logins   => defined $r->{logins} && $r->{logins} =~ /\A[0-9]{1,9}\z/ ? $r->{logins} : undef,
+            seen     => $r->{imported} && $r->{live} ? 'both' : $r->{live} ? 'live' : 'logs',
+            allowed  => $r->{allowed} ? 1 : 0,
+        };
+    }
+    $data->{logins}     = \@rows;
+    $data->{total}      = $reply->{ok} && defined $reply->{total} && $reply->{total} =~ /\A[0-9]{1,9}\z/ ? $reply->{total} : scalar @rows;
+    $data->{scanned_at} = $reply->{ok} && _iso( $reply->{scanned_at} ) ? $reply->{scanned_at} : undef;
+    $data->{answered}   = $reply->{ok} ? 1 : 0;
+}
+
+# Regular and declared clients of the database ports (`panel db-clients`).
+sub _page_clients {
+    my ( $self, $data ) = @_;
+    my $reply = $self->_call('db-clients');
+    my ( @rows, %ports );
+    for my $r ( @{ $self->_access_reply( $data, $reply, 'clients' ) } ) {
+        last if @rows >= CLIENTS_LIMIT;
+        my $port = defined $r->{port} && !ref $r->{port} && $r->{port} =~ /\A[1-9][0-9]{0,4}\z/ && $r->{port} <= 65535 ? $r->{port} : next;
+        my $ip     = valid_ip( $r->{ip} );
+        my $range  = defined $ip ? undef : _cidr( $r->{ip} );
+        next unless defined $ip || defined $range;
+        my $source = defined $r->{source} && !ref $r->{source} && $r->{source} =~ /\A[a-z0-9_]{1,40}\z/ ? $r->{source} : next;
+        my $host   = defined $r->{host} && !ref $r->{host} && length $r->{host} <= 255 && _plain( $r->{host} ) ? $r->{host} : undef;
+        push @rows, {
+            port       => $port,
+            port_name  => $PORT_NAMES{$port},
+            ip         => defined $ip ? $ip : $range,
+            range      => defined $range ? 1 : 0,
+            source     => $source,
+            observed   => $source eq 'observed' ? 1 : 0,
+            host       => $source eq 'observed' ? undef : $host,
+            days       => defined $r->{days} && !ref $r->{days} && $r->{days} =~ /\A[0-9]{1,2}\z/ ? $r->{days} : undef,
+            first_seen => _iso( $r->{first_seen} ) ? $r->{first_seen} : undef,
+            last_seen  => _iso( $r->{last_seen} ) ? $r->{last_seen} : undef,
+            allowed    => $r->{allowed} ? 1 : 0,
+        };
+        $ports{$port}++;
+    }
+    $data->{clients}     = \@rows;
+    $data->{port_count}  = scalar keys %ports;
+    $data->{unlisted}    = scalar grep { !$_->{allowed} } @rows;
+    $data->{total}       = $reply->{ok} && defined $reply->{total} && $reply->{total} =~ /\A[0-9]{1,9}\z/ ? $reply->{total} : scalar @rows;
+    $data->{min_days}    = $reply->{ok} && defined $reply->{min_days} && $reply->{min_days} =~ /\A[0-9]{1,2}\z/ ? $reply->{min_days} : 3;
+    $data->{window_days} = $reply->{ok} && defined $reply->{window_days} && $reply->{window_days} =~ /\A[0-9]{1,2}\z/ ? $reply->{window_days} : 7;
+}
+
+# Text from the agent that is shown as it is (mailboxes, user names, hosts):
+# valid UTF-8 without control, format (bidi overrides, zero-width) or line
+# separator characters, so it cannot pass for another name.
+sub _plain {
+    my ($s) = @_;
+    my $chars = $s;
+    return 0 unless utf8::decode($chars);
+    return $chars !~ /[\p{Cc}\p{Cf}\x{2028}\x{2029}]/;
+}
+
+# A CIDR range in canonical form as the agent prints it ("198.51.100.0/24",
+# "2001:db8::/48"), or undef.
+sub _cidr {
+    my ($s) = @_;
+    return undef unless defined $s && !ref $s && length $s <= 49;
+    my ( $addr, $len ) = $s =~ m{\A([^/]+)/([0-9]{1,3})\z} or return undef;
+    my $ip = valid_ip($addr);
+    return undef unless defined $ip;
+    my $max = $ip =~ /:/ ? 128 : 32;
+    return undef if $len > $max || $len =~ /\A0[0-9]/;
+    return "$ip/$len";
 }
 
 sub _page_coexistence {

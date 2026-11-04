@@ -36,7 +36,7 @@ is( InfraFence::WHM::App::version_cmp( @$_[ 0, 1 ] ), $_->[2], "compare $_->[0] 
 # --- every page, entitled organizations only
 
 my $newer = '99.0.0';
-for my $page (qw(overview bans allowlist findings events coexistence sites)) {
+for my $page (qw(overview bans allowlist logins clients findings events coexistence sites)) {
     my $res = run_app( plugin_latest => $newer, params => { page => $page } );
     is( $res->{data}{plugin_update}, $newer, "$page: the newer release" );
 }

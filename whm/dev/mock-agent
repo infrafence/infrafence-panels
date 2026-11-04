@@ -8,15 +8,16 @@
 #
 # Environment:
 #   MOCK_AGENT_SCENARIO  default | stopped | empty | monitor | restricted | hostile
-#                        | resolved | starter | unpaid | unknown | paid
+#                        | resolved | access | starter | unpaid | unknown | paid
 #                        stopped: the agent is not running. status answers
 #                        status_agent_not_running.json; coexistence and sites
 #                        still answer (agent_running false); every other
 #                        command answers error_agent_not_running.json.
-#                        empty, monitor, restricted, hostile, resolved: replies from
+#                        empty, monitor, restricted, hostile, resolved, access: replies from
 #                        dev/scenarios/<name>/, falling back to dev/fixtures/.
 #                        The default fixtures are from an agent before 1.0.34
-#                        (events and findings without `state`); resolved: from 1.0.34.
+#                        (events and findings without `state`); resolved: from 1.0.34;
+#                        access: events from 1.0.41, with `details`.
 #                        starter, unpaid, unknown, paid: the organization's plan and
 #                        protection in `status` (the rest from dev/fixtures/).
 #                        starter: plan "starter". unpaid: plan "basic", protection
@@ -32,6 +33,9 @@
 #                        (this plugin's VERSION) and plugin_latest (this value), as
 #                        agent 1.0.35 and later send them. Unset: an older agent,
 #                        without either field.
+#   MOCK_AGENT_ACCESS    new (default) | old: old is an agent before 1.0.41, which
+#                        does not know `panel ssh-logins` and `panel db-clients`
+#                        (unknown_command).
 #   MOCK_AGENT_REFUSE    plan_required | unpaid | unknown: every command but `status`
 #                        answers this error (the plan changed after `status`).
 #   MOCK_AGENT_FIXTURES  fixtures directory (default: next to this script)
@@ -96,7 +100,7 @@ sub fail { reply( { ok => $F, agent_running => $T, error => $_[0], message => $_
 
 sub fixture {
     my ($name) = @_;
-    my @dirs = $scenario =~ /\A(?:empty|hostile|monitor|restricted|resolved)\z/ ? ( "$scenarios/$scenario", $fixtures ) : ($fixtures);
+    my @dirs = $scenario =~ /\A(?:empty|hostile|monitor|restricted|resolved|access)\z/ ? ( "$scenarios/$scenario", $fixtures ) : ($fixtures);
     for my $dir (@dirs) {
         my $file = "$dir/$name.json";
         next unless -f $file;
@@ -136,11 +140,16 @@ my %SPEC = (
     scan        => { pos => 1, opts => ['actor'], actor => 1 },
     map         => { pos => 0, opts => ['hours'] },
     score       => { pos => 0, opts => [] },
+    'ssh-logins' => { pos => 0, opts => ['limit'] },
+    'db-clients' => { pos => 0, opts => [] },
 );
 # An agent from before `panel map` and `panel score` does not know them.
 for my $c (qw(map score)) {
     refuse( 'unknown_command', "unknown command: $c" ) if $command eq $c && ( $ENV{ 'MOCK_AGENT_' . uc $c } || '' ) eq 'old';
 }
+# An agent from before `panel ssh-logins` and `panel db-clients` (1.0.41).
+refuse( 'unknown_command', "unknown command: $command" )
+  if ( $command eq 'ssh-logins' || $command eq 'db-clients' ) && ( $ENV{MOCK_AGENT_ACCESS} || 'new' ) eq 'old';
 my $spec = $SPEC{$command} or refuse( 'unknown_command', "unknown command: $command" );
 
 my ( @pos, %opt );
@@ -293,6 +302,8 @@ if ( $command eq 'events' ) {
     limited( $r, 'events' );
 }
 reply( fixture('allowlist') ) if $command eq 'allowlist';
+limited( fixture('ssh_logins'), 'logins' ) if $command eq 'ssh-logins';
+reply( fixture('db_clients') ) if $command eq 'db-clients';
 
 my @bans  = @{ fixture('bans')->{bans} };
 my @allow = @{ fixture('allowlist')->{allowlist} };

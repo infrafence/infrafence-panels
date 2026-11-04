@@ -5,8 +5,11 @@
   `map_168.json` and `score.json` were written from the panel map/score contract before the agent had them;
   replace them with the agent's own outputs once it does.
   [docs/panel-json.md](../../docs/panel-json.md) describes every field.
-- `scenarios/`: test-only variants with the same shapes: `empty`, `monitor`, `restricted` and `hostile` (markup and
-  quotes in every text field, for the escaping tests).
+- `scenarios/`: test-only variants with the same shapes: `empty`, `monitor`, `restricted`, `resolved`, `access`
+  (events of agent 1.0.41, with `details`) and `hostile` (markup and quotes in every text field, for the
+  escaping tests).
+- `MOCK_AGENT_ACCESS=old` answers `panel ssh-logins` and `panel db-clients` with `unknown_command`, like an
+  agent before 1.0.41.
 - Plans: `MOCK_AGENT_SCENARIO=starter|unpaid|unknown|paid` changes `plan` and `protection` in `status`
   (unpaid: protection `disabled`; unknown: plan `null`). `MOCK_AGENT_GATE=new` answers like agent 1.0.34
   (`entitled` and `entitlement` in `status`, `plan_required`, `unpaid` or `unknown` for every other command when

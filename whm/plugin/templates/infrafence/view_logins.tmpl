@@ -1,0 +1,48 @@
+<div class="ifn-head">
+  <h2>[% L.t('logins.title') | html %]</h2>
+  <p class="text-muted">[% L.t('logins.intro') | html %]</p>
+</div>
+[%- IF data.needs_agent %]
+<div class="alert alert-info" role="status">[% L.t('access.needs_agent', version => data.needs_agent) | html %]</div>
+[%- ELSIF data.logins.size %]
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-logins' %]
+<div class="table-responsive">
+<table class="table table-striped table-condensed ifn-table" id="ifn-logins">
+  <thead><tr>
+    <th scope="col">[% L.t('col.address') | html %]</th>
+    <th scope="col">[% L.t('col.users') | html %]</th>
+    <th scope="col">[% L.t('col.country') | html %]</th>
+    <th scope="col">[% L.t('col.first_login') | html %]</th>
+    <th scope="col">[% L.t('col.last_login') | html %]</th>
+    <th scope="col">[% L.t('col.logins') | html %]</th>
+    <th scope="col">[% L.t('col.seen_in') | html %]</th>
+    <th scope="col" class="ifn-actions">[% L.t('col.whitelist') | html %]</th>
+  </tr></thead>
+  <tbody>
+  [%- FOREACH r IN data.logins %]
+  <tr>
+    <td class="ifn-ip">[% r.ip | html %]</td>
+    <td>[% IF r.users.size %][% FOREACH u IN r.users %]<span class="ifn-mono">[% u | html %]</span>[% UNLESS loop.last %], [% END %][% END %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% IF r.country %][% r.country_name | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td class="ifn-nowrap">[% IF r.first_at %]<time datetime="[% r.first_at | html %]">[% L.time(r.first_at) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td class="ifn-nowrap">[% IF r.last_at %]<time datetime="[% r.last_at | html %]" title="[% L.time(r.last_at) | html %]">[% L.ago(r.last_at) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% IF r.logins.defined %][% L.number(r.logins) | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td>[% L.t('logins.seen.' _ r.seen) | html %]</td>
+    <td class="ifn-actions">
+      [%- IF r.allowed %]<span class="label label-success">[% L.t('access.allowed') | html %]</span>
+      [%- ELSE %]<a class="btn btn-default btn-xs" href="[% data.script | html %]?page=logins&amp;action=allow&amp;ip=[% r.ip | uri | html %]">[% L.t('action.allow_add') | html %]</a>[% END %]
+    </td>
+  </tr>
+  [%- END %]
+  </tbody>
+</table>
+</div>
+<p class="text-muted ifn-legend">[% L.t('logins.legend') | html %][% IF data.scanned_at %] [% L.t('logins.scanned', time => L.time(data.scanned_at)) | html %][% END %]</p>
+[%- IF data.total > data.logins.size %]
+<p class="text-muted">[% L.t('list.limited', shown => L.number(data.logins.size), total => L.number(data.total)) | html %]</p>
+[%- END %]
+[%- ELSIF data.gate %]
+<div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
+[%- ELSIF data.answered %]
+<div class="ifn-empty"><p>[% L.t('logins.empty') | html %]</p>[% IF !data.scanned_at %]<p class="text-muted">[% L.t('logins.not_scanned') | html %]</p>[% END %]</div>
+[%- END %]

@@ -1,0 +1,50 @@
+<div class="ifn-head">
+  <h2>[% L.t('clients.title') | html %]</h2>
+  <p class="text-muted">[% L.t('clients.intro', days => data.min_days || 3, window => data.window_days || 7) | html %]</p>
+</div>
+[%- IF data.needs_agent %]
+<div class="alert alert-info" role="status">[% L.t('access.needs_agent', version => data.needs_agent) | html %]</div>
+[%- ELSIF data.clients.size %]
+[%- IF data.unlisted %]
+<div class="alert alert-warning" role="status">[% L.tn('clients.unlisted', data.unlisted) | html %]</div>
+[%- END %]
+[% INCLUDE 'infrafence/_toolbar.tmpl' table = 'ifn-clients' %]
+<div class="table-responsive">
+<table class="table table-striped table-condensed ifn-table" id="ifn-clients">
+  <thead><tr>
+    <th scope="col">[% L.t('col.port') | html %]</th>
+    <th scope="col">[% L.t('col.address') | html %]</th>
+    <th scope="col">[% L.t('col.source') | html %]</th>
+    <th scope="col">[% L.t('col.days_seen') | html %]</th>
+    <th scope="col">[% L.t('col.first_seen') | html %]</th>
+    <th scope="col">[% L.t('col.last_seen') | html %]</th>
+    <th scope="col" class="ifn-actions">[% L.t('col.whitelist') | html %]</th>
+  </tr></thead>
+  <tbody>
+  [%- FOREACH c IN data.clients %]
+  <tr>
+    <td class="ifn-nowrap"><span class="ifn-mono">[% c.port | html %]</span>[% IF c.port_name %] <span class="text-muted">[% c.port_name | html %]</span>[% END %]</td>
+    <td class="ifn-ip">[% c.ip | html %][% IF c.host && c.host != c.ip %] <small class="ifn-detail text-muted">[% c.host | html %]</small>[% END %]</td>
+    <td>[% L.label('client_source', c.source) | html %]</td>
+    <td>[% IF c.days.defined %][% L.t('clients.days', n => c.days, window => data.window_days) | html %][% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td class="ifn-nowrap">[% IF c.first_seen %]<time datetime="[% c.first_seen | html %]">[% L.time(c.first_seen) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td class="ifn-nowrap">[% IF c.last_seen %]<time datetime="[% c.last_seen | html %]" title="[% L.time(c.last_seen) | html %]">[% L.ago(c.last_seen) | html %]</time>[% ELSE %]<span class="text-muted">&ndash;</span>[% END %]</td>
+    <td class="ifn-actions">
+      [%- IF c.allowed %]<span class="label label-success">[% L.t('access.allowed') | html %]</span>
+      [%- ELSIF c.range %]<span class="text-muted ifn-managed">[% L.t('clients.range_in_dashboard') | html %]</span>
+      [%- ELSE %]<a class="btn btn-default btn-xs" href="[% data.script | html %]?page=clients&amp;action=allow&amp;ip=[% c.ip | uri | html %]">[% L.t('action.allow_add') | html %]</a>[% END %]
+    </td>
+  </tr>
+  [%- END %]
+  </tbody>
+</table>
+</div>
+<p class="text-muted ifn-legend">[% L.t('clients.legend') | html %]</p>
+[%- IF data.total > data.clients.size %]
+<p class="text-muted">[% L.t('list.limited', shown => L.number(data.clients.size), total => L.number(data.total)) | html %]</p>
+[%- END %]
+[%- ELSIF data.gate %]
+<div class="ifn-empty"><p>[% L.t('gate.empty') | html %]</p></div>
+[%- ELSIF !data.list_error %]
+<div class="ifn-empty"><p>[% L.t('clients.empty', days => data.min_days || 3, window => data.window_days || 7) | html %]</p></div>
+[%- END %]

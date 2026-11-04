@@ -24,6 +24,12 @@ The score and the map come from the InfraFence dashboard through the agent's `pa
 commands, which need agent 1.0.33 or later. The plugin is updated from the dashboard (Panel plugins), not with
 the agent; from agent 1.0.35 and plugin 1.0.3 it says when a newer release is available. See
 [whm/README.md](whm/README.md).
+
+**WHM 1.1.0:** events show their details as in the dashboard (the mailbox, protocol and login method of a mail
+attack, the CVE, attack type and site of a web firewall block, where an exposed database listens), and two new
+screens list the **known SSH logins** of the last 30 days and the **regular clients of the database ports**
+(with the Additional MySQL Access Hosts), each with **Add to whitelist**. They need agent 1.0.41 or later
+(`panel ssh-logins`, `panel db-clients`, event `details`), which answers them from what it keeps on the server.
 Overview for hosting providers: [InfraFence for cPanel & WHM](https://infrafence.com/integrations/cpanel-whm);
 what the plugins show and need: [Hosting panels](https://infrafence.com/docs/hosting-panels).
 

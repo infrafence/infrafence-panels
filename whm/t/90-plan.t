@@ -26,7 +26,7 @@ sub calls {
 }
 sub commands { [ map { $_->[1] } @{ calls() } ] }
 
-my @PAGES = qw(overview bans allowlist findings events coexistence sites);
+my @PAGES = qw(overview bans allowlist logins clients findings events coexistence sites);
 
 # --- the rule
 

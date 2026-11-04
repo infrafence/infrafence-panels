@@ -35,7 +35,7 @@ sub mutating { [ grep { $_->[1] =~ /\A(?:unban|allow|disallow|scan)\z/ } @{ call
 
 # --- pages
 
-for my $page (qw(overview bans allowlist findings events coexistence sites)) {
+for my $page (qw(overview bans allowlist logins clients findings events coexistence sites)) {
     my $res = run_app( params => { page => $page } );
     is( $res->{code}, 200, "$page: 200" );
     is( $res->{template}, 'infrafence/main.tmpl', "$page: main template" );

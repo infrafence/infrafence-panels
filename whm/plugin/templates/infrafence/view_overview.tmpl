@@ -64,7 +64,8 @@
       <li>
         <span class="ifn-sev ifn-sev-[% e.level | html %]">[% L.label('severity', e.severity) | html %]</span>
         <span class="ifn-event-name">[% IF L.has('event.' _ e.type) %][% L.t('event.' _ e.type) | html %][% ELSE %][% L.t('event.unknown') | html %] <code>[% e.type | html %]</code>[% END %]
-          [%- IF e.ip %] <span class="ifn-ip text-muted">[% L.t('attention.from', ip => e.ip) | html %]</span>[% END %]</span>
+          [%- IF e.ip %] <span class="ifn-ip text-muted">[% L.t('attention.from', ip => e.ip) | html %]</span>[% END %]
+          [%- IF e.summary %] <span class="ifn-mono text-muted ifn-event-summary">[% e.summary | html %]</span>[% END %]</span>
         <time class="ifn-event-time text-muted" datetime="[% e.time | html %]" title="[% L.time(e.time) | html %]">[% L.ago(e.time) | html %]</time>
       </li>
       [%- END %]
