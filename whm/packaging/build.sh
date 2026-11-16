@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the release files into whm/dist/, using Docker only:
 #   infrafence-whm-VERSION.tar.gz       (install.sh inside)
-#   infrafence-whm-VERSION-1.noarch.rpm (AlmaLinux 8/9/10, CloudLinux)
+#   infrafence-whm-VERSION-1.noarch.rpm (AlmaLinux 8/9/10, CloudLinux, CentOS 7)
 #   infrafence-whm_VERSION_all.deb      (Ubuntu 24.04)
 #
 # File modes are normalised at every step (only the owner may write), so the

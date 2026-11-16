@@ -1,7 +1,10 @@
-# RPM for AlmaLinux 8/9/10, CloudLinux, Rocky and RHEL with cPanel & WHM.
+# RPM for AlmaLinux 8/9/10, CloudLinux, Rocky, RHEL and CentOS 7 with cPanel & WHM.
 # Built by packaging/build.sh; the version comes from the VERSION file.
 
 %global debug_package %{nil}
+# xz, not the zstd default of newer rpmbuild: rpm 4.11 on CentOS 7 (cPanel 110)
+# cannot read a zstd payload ("rpmlib(PayloadIsZstd) is needed").
+%global _binary_payload w9.xzdio
 
 Name:           infrafence-whm
 Version:        %{ifn_version}
@@ -55,6 +58,10 @@ fi
 /usr/local/share/infrafence-whm
 
 %changelog
+* Mon Nov 16 2026 Infrafence <info@infrafence.com> - 1.1.1-1
+- The RPM installs on CentOS 7 with cPanel 110: its payload is compressed
+  with xz instead of zstd, which rpm 4.11 cannot read. No change in the plugin.
+
 * Wed Nov 04 2026 Infrafence <info@infrafence.com> - 1.1.0-1
 - Event details, as in the dashboard: the mailbox, mail protocol, login
   method and failures of a mail attack; the CVE (with a link to the
