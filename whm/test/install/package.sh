@@ -36,10 +36,12 @@ sh "$HERE/fake-cpanel.sh" >/dev/null
 t "install"            add
 t "registered"         test -f $APP
 t "CGI"                test -x $D/cgi/infrafence/index.cgi
-t "CGI compiles"       /usr/local/cpanel/3rdparty/bin/perl -c $D/cgi/infrafence/index.cgi
-. "$HERE/cgi.sh"
-t "CGI runs"           cgi GET ""
-t "page rendered"      grep -q 'agent is not installed' /tmp/cgi.out
+if [ -z "${NO_CGI:-}" ]; then
+    t "CGI compiles"       /usr/local/cpanel/3rdparty/bin/perl -c $D/cgi/infrafence/index.cgi
+    . "$HERE/cgi.sh"
+    t "CGI runs"           cgi GET ""
+    t "page rendered"      grep -q 'agent is not installed' /tmp/cgi.out
+fi
 t "reinstall/upgrade"  upg
 t "still registered"   test -f $APP
 t "remove"             del

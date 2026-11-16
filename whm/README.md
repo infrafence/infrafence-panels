@@ -141,7 +141,7 @@ installer checks the server first. If a check fails, nothing is changed. Service
     ./install.sh --check    # optional: only run the checks
     ./install.sh
 
-or `dnf install ./infrafence-whm-VERSION-1.noarch.rpm` (AlmaLinux 8/9/10, CloudLinux, Rocky), or
+or `dnf install ./infrafence-whm-VERSION-1.noarch.rpm` (AlmaLinux 8/9/10, CloudLinux, Rocky, and CentOS 7 with `yum install`), or
 `apt install ./infrafence-whm_VERSION_all.deb` (Ubuntu 24.04).
 
 To remove: `/usr/local/share/infrafence-whm/uninstall.sh` (tarball install), `dnf remove infrafence-whm`
